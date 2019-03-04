@@ -5,10 +5,10 @@ import (
 	"math/big"
 
 	"github.com/dynamicgo/fixed"
+	"github.com/openzknetwork/key"
 
 	"github.com/dynamicgo/injector"
 	"github.com/dynamicgo/xerrors"
-	"github.com/openzknetwork/key"
 )
 
 var prefix = "LPT_GOCHAIN_"
