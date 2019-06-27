@@ -4,6 +4,8 @@ import (
 	"errors"
 	"math/big"
 
+	"github.com/openzknetwork/gochain/rpc/ont"
+
 	"github.com/dynamicgo/fixed"
 	"github.com/openzknetwork/key"
 
@@ -29,6 +31,15 @@ type EthTxRequest struct {
 	GasLimits *big.Int
 	Value     *fixed.Number
 	Script    []byte
+}
+
+// OntTxRequest .
+type OntTxRequest struct {
+	From      *ont.Account
+	To        ont.Address
+	GasPrice  uint64
+	GasLimits uint64
+	Value     uint64
 }
 
 // Property .

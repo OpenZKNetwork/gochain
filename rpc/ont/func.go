@@ -40,7 +40,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ontio/ontology-crypto/sm3"
 	"golang.org/x/crypto/ed25519"
 	"golang.org/x/crypto/ripemd160"
 )
@@ -1228,7 +1227,7 @@ func GetHash(scheme SignatureScheme) hash.Hash {
 	case RIPEMD160withECDSA:
 		return crypto.RIPEMD160.New()
 	case SM3withSM2:
-		return sm3.New()
+		return SM3New()
 	case SHA512withEDDSA:
 		return crypto.SHA512.New()
 	}
@@ -1252,8 +1251,6 @@ func randFieldElement(c elliptic.Curve, rand io.Reader) (*big.Int, error) {
 	k.Add(k, one)
 	return k, nil
 }
-
-
 
 func PubKeysEqual(pks1, pks2 []PublicKey) bool {
 	if len(pks1) != len(pks2) {

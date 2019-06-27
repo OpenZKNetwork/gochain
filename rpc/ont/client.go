@@ -1,25 +1,245 @@
 package ont
 
 import (
+	"bytes"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
+	"net/http"
+	"sync/atomic"
+	"time"
+
+	"github.com/dynamicgo/slf4go"
 )
 
-type NativeContract struct {
-	ontSdk *SDK
-	Ont    *Ont
-	// GlobalParams *GlobalParam
+// Client eth web3 api client
+type Client interface {
+	// Nonce(address string) (uint64, error)
+	GetBalance(address Address) (uint64, error)
+	BestBlockNumber() (uint32, error)
+	GetBlockByNumber(number uint32) (val *Block, err error)
+	GetTransactionByHash(tx string) (val *Transaction, err error)
+	SendRawTransaction(gasPrice, gasLimit uint64, from *Account, to Address, amount uint64) (Uint256, error)
+	// BalanceOfAsset(address string, asset string, decimals int) (*fixed.Number, error)
+	// DecimalsOfAsset(asset string) (int, error)
+	GetTransactionReceipt(tx string) (val *SmartContactEvent, err error)
+	SuggestGasPrice() (uint32, error)
+	Decimals() (uint64, error)
+	TotalSupply() (uint64, error)
+	Symbol() (string, error)
 }
 
-func newNativeContract(ontSdk *SDK) *NativeContract {
-	native := &NativeContract{ontSdk: ontSdk}
-	native.Ont = &Ont{native: native, ontSdk: ontSdk}
-	// native.OntId = &OntId{native: native, ontSdk: ontSdk}
-	// native.GlobalParams = &GlobalParam{native: native, ontSdk: ontSdk}
-	return native
+type clientImpl struct {
+	qid uint64
+	slf4go.Logger
+	httpClient *http.Client
+	addr       string
 }
 
-func (this *NativeContract) NewNativeInvokeTransaction(
+//New return RPCImpl instance
+func New(url string) Client {
+	return &clientImpl{
+		httpClient: &http.Client{
+			Transport: &http.Transport{
+				MaxIdleConnsPerHost:   5,
+				DisableKeepAlives:     false, //enable keepalive
+				IdleConnTimeout:       time.Second * 300,
+				ResponseHeaderTimeout: time.Second * 300,
+			},
+			Timeout: time.Second * 300, //timeout for http response
+		},
+		addr:   url,
+		Logger: slf4go.Get("eth-rpc-client"),
+		qid:    0,
+	}
+}
+
+//Symbol .
+func (client *clientImpl) Symbol() (string, error) {
+	preResult, err := client.PreExecInvokeNativeContract(
+		ONT_CONTRACT_ADDRESS,
+		ONT_CONTRACT_VERSION,
+		SYMBOL_NAME,
+		[]interface{}{},
+	)
+	if err != nil {
+		return "", err
+	}
+	return preResult.Result.ToString()
+}
+
+func (client *clientImpl) GetBalance(address Address) (uint64, error) {
+	preResult, err := client.PreExecInvokeNativeContract(
+		ONT_CONTRACT_ADDRESS,
+		ONT_CONTRACT_VERSION,
+		BALANCEOF_NAME,
+		[]interface{}{address[:]},
+	)
+	if err != nil {
+		return 0, err
+	}
+	balance, err := preResult.Result.ToInteger()
+	if err != nil {
+		return 0, err
+	}
+	return balance.Uint64(), nil
+}
+
+func (client *clientImpl) Decimals() (uint64, error) {
+	preResult, err := client.PreExecInvokeNativeContract(
+		ONT_CONTRACT_ADDRESS,
+		ONT_CONTRACT_VERSION,
+		DECIMALS_NAME,
+		[]interface{}{},
+	)
+	if err != nil {
+		return 0, err
+	}
+	decimals, err := preResult.Result.ToInteger()
+	if err != nil {
+		return 0, err
+	}
+	return decimals.Uint64(), nil
+}
+
+func (client *clientImpl) TotalSupply() (uint64, error) {
+	preResult, err := client.PreExecInvokeNativeContract(
+		ONT_CONTRACT_ADDRESS,
+		ONT_CONTRACT_VERSION,
+		TOTAL_SUPPLY_NAME,
+		[]interface{}{},
+	)
+	if err != nil {
+		return 0, err
+	}
+	balance, err := preResult.Result.ToInteger()
+	if err != nil {
+		return 0, err
+	}
+	return balance.Uint64(), nil
+}
+
+func (client *clientImpl) GetTransactionReceipt(txHash string) (*SmartContactEvent, error) {
+	data, err := client.sendRequest(getSmartCodeEvent, []interface{}{txHash})
+	if err != nil {
+		return nil, err
+	}
+	return GetSmartContractEvent(data)
+}
+func (client *clientImpl) GetBlockByNumber(height uint32) (*Block, error) {
+	data, err := client.sendRequest(getBlock, []interface{}{height})
+	if err != nil {
+		return nil, err
+	}
+	return GetBlock(data)
+}
+
+func (client *clientImpl) SuggestGasPrice() (uint32, error) {
+	data, err := client.sendRequest(getGasPrice, []interface{}{})
+	if err != nil {
+		return 0, err
+	}
+	return GetUint32(data)
+}
+
+func (client *clientImpl) GetTransactionByHash(txHash string) (*Transaction, error) {
+	data, err := client.sendRequest(getTransaction, []interface{}{txHash})
+	if err != nil {
+		return nil, err
+	}
+	return GetTransaction(data)
+}
+
+func (client *clientImpl) BestBlockNumber() (uint32, error) {
+	data, err := client.sendRequest(getBlockCount, []interface{}{})
+	if err != nil {
+		return 0, err
+	}
+	count, err := GetUint32(data)
+	if err != nil {
+		return 0, err
+	}
+	b, err := json.Marshal(count - 1)
+	if err != nil {
+		return 0, err
+	}
+
+	return GetUint32(b)
+}
+
+//GetRawTransactionParams .
+func (client *clientImpl) GetRawTransactionParams(tx *Transaction, isPreExec bool) ([]interface{}, error) {
+	var buffer bytes.Buffer
+	err := tx.Serialize(&buffer)
+	if err != nil {
+		return nil, fmt.Errorf("serialize error:%s", err)
+	}
+	txData := hex.EncodeToString(buffer.Bytes())
+	params := []interface{}{txData}
+	if isPreExec {
+		params = append(params, 1)
+	}
+	return params, nil
+}
+
+func (client *clientImpl) SendRawTransaction(gasPrice, gasLimit uint64, from *Account, to Address, amount uint64) (Uint256, error) {
+	tx, err := client.NewTransferTransaction(gasPrice, gasLimit, from.Address, to, amount)
+	if err != nil {
+		return UINT256_EMPTY, err
+	}
+	err = client.SignToTransaction(tx, from)
+	if err != nil {
+		return UINT256_EMPTY, err
+	}
+	mutTx, err := tx.IntoImmutable()
+	if err != nil {
+		return UINT256_EMPTY, err
+	}
+	rawparams, err := client.GetRawTransactionParams(mutTx, false)
+	if err != nil {
+		return UINT256_EMPTY, err
+	}
+
+	data, err := client.sendRequest(sendTransaction, rawparams)
+	if err != nil {
+		return UINT256_EMPTY, err
+	}
+	return GetUint256(data)
+}
+func (client *clientImpl) NewTransferTransaction(gasPrice, gasLimit uint64, from, to Address, amount uint64) (*MutableTransaction, error) {
+	state := &State{
+		From:  from,
+		To:    to,
+		Value: amount,
+	}
+	return client.NewMultiTransferTransaction(gasPrice, gasLimit, []*State{state})
+}
+func (client *clientImpl) NewMultiTransferTransaction(gasPrice, gasLimit uint64, states []*State) (*MutableTransaction, error) {
+	return client.NewNativeInvokeTransaction(
+		gasPrice,
+		gasLimit,
+		ONT_CONTRACT_VERSION,
+		ONT_CONTRACT_ADDRESS,
+		TRANSFER_NAME,
+		[]interface{}{states})
+}
+func (client *clientImpl) PreExecInvokeNativeContract(
+	contractAddress Address,
+	version byte,
+	method string,
+	params []interface{},
+) (*PreExecResult, error) {
+	tx, err := client.NewNativeInvokeTransaction(0, 0, version, contractAddress, method, params)
+	if err != nil {
+		return nil, err
+	}
+	return client.PreExecTransaction(tx)
+}
+
+// NewNativeInvokeTransaction .
+func (client *clientImpl) NewNativeInvokeTransaction(
 	gasPrice,
 	gasLimit uint64,
 	version byte,
@@ -38,126 +258,11 @@ func (this *NativeContract) NewNativeInvokeTransaction(
 	if err != nil {
 		return nil, fmt.Errorf("BuildNativeInvokeCode error:%s", err)
 	}
-	return this.ontSdk.NewInvokeTransaction(gasPrice, gasLimit, invokeCode), nil
-}
-
-func (this *NativeContract) InvokeNativeContract(
-	gasPrice,
-	gasLimit uint64,
-	singer *Account,
-	version byte,
-	contractAddress Address,
-	method string,
-	params []interface{},
-) (Uint256, error) {
-	tx, err := this.NewNativeInvokeTransaction(gasPrice, gasLimit, version, contractAddress, method, params)
-	if err != nil {
-		return UINT256_EMPTY, err
-	}
-	err = this.ontSdk.SignToTransaction(tx, singer)
-	if err != nil {
-		return UINT256_EMPTY, err
-	}
-	return this.ontSdk.SendTransaction(tx)
-}
-
-func (this *NativeContract) PreExecInvokeNativeContract(
-	contractAddress Address,
-	version byte,
-	method string,
-	params []interface{},
-) (*PreExecResult, error) {
-	tx, err := this.NewNativeInvokeTransaction(0, 0, version, contractAddress, method, params)
-	if err != nil {
-		return nil, err
-	}
-	return this.ontSdk.PreExecTransaction(tx)
-}
-
-type Ont struct {
-	ontSdk *SDK
-	native *NativeContract
-}
-
-func (this *Ont) Symbol() (string, error) {
-	preResult, err := this.native.PreExecInvokeNativeContract(
-		ONT_CONTRACT_ADDRESS,
-		ONT_CONTRACT_VERSION,
-		SYMBOL_NAME,
-		[]interface{}{},
-	)
-	if err != nil {
-		return "", err
-	}
-	return preResult.Result.ToString()
-}
-
-func (this *Ont) BalanceOf(address Address) (uint64, error) {
-	preResult, err := this.native.PreExecInvokeNativeContract(
-		ONT_CONTRACT_ADDRESS,
-		ONT_CONTRACT_VERSION,
-		BALANCEOF_NAME,
-		[]interface{}{address[:]},
-	)
-	if err != nil {
-		return 0, err
-	}
-	balance, err := preResult.Result.ToInteger()
-	if err != nil {
-		return 0, err
-	}
-	return balance.Uint64(), nil
-}
-
-func (this *Ont) Name() (string, error) {
-	preResult, err := this.native.PreExecInvokeNativeContract(
-		ONT_CONTRACT_ADDRESS,
-		ONT_CONTRACT_VERSION,
-		NAME_NAME,
-		[]interface{}{},
-	)
-	if err != nil {
-		return "", err
-	}
-	return preResult.Result.ToString()
-}
-
-func (this *Ont) Decimals() (byte, error) {
-	preResult, err := this.native.PreExecInvokeNativeContract(
-		ONT_CONTRACT_ADDRESS,
-		ONT_CONTRACT_VERSION,
-		DECIMALS_NAME,
-		[]interface{}{},
-	)
-	if err != nil {
-		return 0, err
-	}
-	decimals, err := preResult.Result.ToInteger()
-	if err != nil {
-		return 0, err
-	}
-	return byte(decimals.Uint64()), nil
-}
-
-func (this *Ont) TotalSupply() (uint64, error) {
-	preResult, err := this.native.PreExecInvokeNativeContract(
-		ONT_CONTRACT_ADDRESS,
-		ONT_CONTRACT_VERSION,
-		TOTAL_SUPPLY_NAME,
-		[]interface{}{},
-	)
-	if err != nil {
-		return 0, err
-	}
-	balance, err := preResult.Result.ToInteger()
-	if err != nil {
-		return 0, err
-	}
-	return balance.Uint64(), nil
+	return client.NewInvokeTransaction(gasPrice, gasLimit, invokeCode), nil
 }
 
 //NewInvokeTransaction return smart contract invoke transaction
-func (this *SDK) NewInvokeTransaction(gasPrice, gasLimit uint64, invokeCode []byte) *MutableTransaction {
+func (client *clientImpl) NewInvokeTransaction(gasPrice, gasLimit uint64, invokeCode []byte) *MutableTransaction {
 	invokePayload := &InvokeCode{
 		Code: invokeCode,
 	}
@@ -171,8 +276,39 @@ func (this *SDK) NewInvokeTransaction(gasPrice, gasLimit uint64, invokeCode []by
 	}
 	return tx
 }
+func (client *clientImpl) InvokeNativeContract(
+	gasPrice,
+	gasLimit uint64,
+	singer *Account,
+	version byte,
+	contractAddress Address,
+	method string,
+	params []interface{},
+) (Uint256, error) {
+	mutTx, err := client.NewNativeInvokeTransaction(gasPrice, gasLimit, version, contractAddress, method, params)
+	if err != nil {
+		return UINT256_EMPTY, err
+	}
+	err = client.SignToTransaction(mutTx, singer)
+	if err != nil {
+		return UINT256_EMPTY, err
+	}
+	tx, err := mutTx.IntoImmutable()
+	if err != nil {
+		return UINT256_EMPTY, err
+	}
+	rawparams, err := client.GetRawTransactionParams(tx, false)
+	if err != nil {
+		return UINT256_EMPTY, err
+	}
 
-func (this *SDK) SignToTransaction(tx *MutableTransaction, signer Signer) error {
+	data, err := client.sendRequest(sendTransaction, rawparams)
+	if err != nil {
+		return UINT256_EMPTY, err
+	}
+	return GetUint256(data)
+}
+func (client *clientImpl) SignToTransaction(tx *MutableTransaction, signer Signer) error {
 	if tx.Payer == ADDRESS_EMPTY {
 		account, ok := signer.(*Account)
 		if ok {
@@ -201,123 +337,66 @@ func (this *SDK) SignToTransaction(tx *MutableTransaction, signer Signer) error 
 	return nil
 }
 
-// func (this *Ont) NewTransferTransaction(gasPrice, gasLimit uint64, from, to Address, amount uint64) (*MutableTransaction, error) {
-// 	state := &State{
-// 		From:  from,
-// 		To:    to,
-// 		Value: amount,
-// 	}
-// 	return this.NewMultiTransferTransaction(gasPrice, gasLimit, []*State{state})
-// }
+//PreExecTransaction .
+func (client *clientImpl) PreExecTransaction(mutTx *MutableTransaction) (*PreExecResult, error) {
+	tx, err := mutTx.IntoImmutable()
+	if err != nil {
+		return nil, err
+	}
 
-// func (this *Ont) Transfer(gasPrice, gasLimit uint64, from *Account, to Address, amount uint64) (Uint256, error) {
-// 	tx, err := this.NewTransferTransaction(gasPrice, gasLimit, from.Address, to, amount)
-// 	if err != nil {
-// 		return UINT256_EMPTY, err
-// 	}
-// 	err = this.ontSdk.SignToTransaction(tx, from)
-// 	if err != nil {
-// 		return UINT256_EMPTY, err
-// 	}
-// 	return this.ontSdk.SendTransaction(tx)
-// }
+	rawparams, err := client.GetRawTransactionParams(tx, false)
+	if err != nil {
+		return nil, err
+	}
 
-// func (this *Ont) NewMultiTransferTransaction(gasPrice, gasLimit uint64, states []*State) (*MutableTransaction, error) {
-// 	return this.native.NewNativeInvokeTransaction(
-// 		gasPrice,
-// 		gasLimit,
-// 		ONT_CONTRACT_VERSION,
-// 		ONT_CONTRACT_ADDRESS,
-// 		ont.TRANSFER_NAME,
-// 		[]interface{}{states})
-// }
+	data, err := client.sendRequest(sendTransaction, rawparams)
+	if err != nil {
+		return nil, err
+	}
 
-// func (this *Ont) MultiTransfer(gasPrice, gasLimit uint64, states []*ont.State, signer *Account) (Uint256, error) {
-// 	tx, err := this.NewMultiTransferTransaction(gasPrice, gasLimit, states)
-// 	if err != nil {
-// 		return UINT256_EMPTY, err
-// 	}
-// 	err = this.ontSdk.SignToTransaction(tx, signer)
-// 	if err != nil {
-// 		return UINT256_EMPTY, err
-// 	}
-// 	return this.ontSdk.SendTransaction(tx)
-// }
+	preResult := &PreExecResult{}
+	err = json.Unmarshal(data, &preResult)
+	if err != nil {
+		return nil, fmt.Errorf("json.Unmarshal PreExecResult:%s error:%s", data, err)
+	}
+	return preResult, nil
+}
 
-// func (this *Ont) NewTransferFromTransaction(gasPrice, gasLimit uint64, sender, from, to Address, amount uint64) (*types.MutableTransaction, error) {
-// 	state := &ont.TransferFrom{
-// 		Sender: sender,
-// 		From:   from,
-// 		To:     to,
-// 		Value:  amount,
-// 	}
-// 	return this.native.NewNativeInvokeTransaction(
-// 		gasPrice,
-// 		gasLimit,
-// 		ONT_CONTRACT_VERSION,
-// 		ONT_CONTRACT_ADDRESS,
-// 		ont.TRANSFERFROM_NAME,
-// 		[]interface{}{state},
-// 	)
-// }
+//GetNextQid .
+func (client *clientImpl) GetNextQid() string {
+	return fmt.Sprintf("%d", atomic.AddUint64(&client.qid, 1))
+}
 
-// func (this *Ont) TransferFrom(gasPrice, gasLimit uint64, sender *Account, from, to Address, amount uint64) (Uint256, error) {
-// 	tx, err := this.NewTransferFromTransaction(gasPrice, gasLimit, sender.Address, from, to, amount)
-// 	if err != nil {
-// 		return UINT256_EMPTY, err
-// 	}
-// 	err = this.ontSdk.SignToTransaction(tx, sender)
-// 	if err != nil {
-// 		return UINT256_EMPTY, err
-// 	}
-// 	return this.ontSdk.SendTransaction(tx)
-// }
+//sendRequest send Rpc request to ontology
+func (client *clientImpl) sendRequest(method string, params []interface{}) ([]byte, error) {
+	rpcReq := &JSONReqest{
+		Version: jsonRPCVersion,
+		ID:      client.GetNextQid(),
+		Method:  method,
+		Params:  params,
+	}
+	data, err := json.Marshal(rpcReq)
+	if err != nil {
+		return nil, fmt.Errorf("JsonRpcRequest json.Marsha error:%s", err)
+	}
+	resp, err := client.httpClient.Post(client.addr, "application/json", bytes.NewReader(data))
+	if err != nil {
+		return nil, fmt.Errorf("http post request:%s error:%s", data, err)
+	}
+	defer resp.Body.Close()
 
-// func (this *Ont) NewApproveTransaction(gasPrice, gasLimit uint64, from, to Address, amount uint64) (*types.MutableTransaction, error) {
-// 	state := &ont.State{
-// 		From:  from,
-// 		To:    to,
-// 		Value: amount,
-// 	}
-// 	return this.native.NewNativeInvokeTransaction(
-// 		gasPrice,
-// 		gasLimit,
-// 		ONT_CONTRACT_VERSION,
-// 		ONT_CONTRACT_ADDRESS,
-// 		ont.APPROVE_NAME,
-// 		[]interface{}{state},
-// 	)
-// }
-
-// func (this *Ont) Approve(gasPrice, gasLimit uint64, from *Account, to Address, amount uint64) (Uint256, error) {
-// 	tx, err := this.NewApproveTransaction(gasPrice, gasLimit, from.Address, to, amount)
-// 	if err != nil {
-// 		return UINT256_EMPTY, err
-// 	}
-// 	err = this.ontSdk.SignToTransaction(tx, from)
-// 	if err != nil {
-// 		return UINT256_EMPTY, err
-// 	}
-// 	return this.ontSdk.SendTransaction(tx)
-// }
-
-// func (this *Ont) Allowance(from, to Address) (uint64, error) {
-// 	type allowanceStruct struct {
-// 		From Address
-// 		To   Address
-// 	}
-// 	preResult, err := this.native.PreExecInvokeNativeContract(
-// 		ONT_CONTRACT_ADDRESS,
-// 		ONT_CONTRACT_VERSION,
-// 		ont.ALLOWANCE_NAME,
-// 		[]interface{}{&allowanceStruct{From: from, To: to}},
-// 	)
-// 	if err != nil {
-// 		return 0, err
-// 	}
-// 	balance, err := preResult.Result.ToInteger()
-// 	if err != nil {
-// 		return 0, err
-// 	}
-// 	return balance.Uint64(), nil
-// }
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read rpc response body error:%s", err)
+	}
+	rpcRsp := &JSONResponse{}
+	err = json.Unmarshal(body, rpcRsp)
+	if err != nil {
+		return nil, fmt.Errorf("json.Unmarshal JsonRpcResponse:%s error:%s", body, err)
+	}
+	if rpcRsp.Error != 0 {
+		return nil, fmt.Errorf("JsonRpcResponse error code:%d desc:%s result:%s", rpcRsp.Error, rpcRsp.Desc, rpcRsp.Result)
+	}
+	client.qid++
+	return rpcRsp.Result, nil
+}

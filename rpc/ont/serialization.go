@@ -27,8 +27,6 @@ import (
 	"math"
 	"math/big"
 
-	"github.com/ontio/ontology/common"
-	"github.com/ontio/ontology/common/serialization"
 )
 
 var ErrRange = errors.New("value out of range")
@@ -345,7 +343,7 @@ func WriteAddress(w io.Writer, address Address) error {
 }
 
 func ReadAddress(r io.Reader) (Address, error) {
-	from, err := serialization.ReadVarBytes(r)
+	from, err := ReadVarBytes(r)
 	if err != nil {
 		return Address{}, fmt.Errorf("[State] deserialize from error:%v", err)
 	}
@@ -366,9 +364,9 @@ func DecodeVarUint(source *ZeroCopySource) (uint64, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	if irregular {
-		return 0, common.ErrIrregularData
+		return 0, ErrIrregularData
 	}
-	v := common.BigIntFromNeoBytes(value)
+	v := BigIntFromNeoBytes(value)
 	if v.Cmp(big.NewInt(0)) < 0 {
 		return 0, fmt.Errorf("%s", "value should not be a negative number.")
 	}

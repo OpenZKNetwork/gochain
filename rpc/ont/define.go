@@ -15,6 +15,71 @@ import (
 )
 
 const (
+	//getVersion .
+	getVersion = "getversion"
+	//getTransaction .
+	getTransaction = "getrawtransaction"
+	//sendTransaction .
+	sendTransaction = "sendrawtransaction"
+	// getBlock .
+	getBlock = "getblock"
+	//getBlockCount .
+	getBlockCount = "getblockcount"
+	//getBlockHash .
+	getBlockHash = "getblockhash"
+	//getCurrentBlockHash .
+	getCurrentBlockHash = "getbestblockhash"
+	// getBalance .
+	getBalance = "getbalance"
+	//getSmartCodeEvent .
+	getSmartCodeEvent = "getsmartcodeevent"
+	//getstorage .
+	getStorage = "getstorage"
+	//getSmartContract .
+	getSmartContract = "getcontractstate"
+	//getGenerateBlockTime .
+	getGenerateBlockTime = "getgenerateblocktime"
+	//getMerkleProof .
+	getMerkleProof = "getmerkleproof"
+	//getNetworkID .
+	getNetworkID = "getnetworkid"
+	//getMemPoolTxCount .
+	getMemPoolTxCount = "getmempooltxcount"
+	//getMemPoolTxState
+	getMemPoolTxState = "getmempooltxstate"
+	//getBlockTxHashByHegiht
+	getBlockTxHashByHegiht = "getblocktxsbyheight"
+	//getBlockHeightByTxHash
+	getBlockHeightByTxHash = "getblockheightbytxhash"
+	//sendEmergencyGovReq
+	sendEmergencyGovReq = "sendemergencygovreq"
+	//getBlockRootWhitNewTxRoot
+	getBlockRootWhitNewTxRoot = "getblockrootwithnewtxroot"
+
+	//getGasprice
+	getGasPrice = "getgasprice"
+)
+
+//JsonRpc version
+const jsonRPCVersion = "2.0"
+
+//JSONResponse object response for JsonRpcRequest
+type JSONResponse struct {
+	ID     string          `json:"id"`
+	Error  int64           `json:"error"`
+	Desc   string          `json:"desc"`
+	Result json.RawMessage `json:"result"`
+}
+
+//JSONReqest object in rpc
+type JSONReqest struct {
+	Version string        `json:"jsonrpc"`
+	ID      string        `json:"id"`
+	Method  string        `json:"method"`
+	Params  []interface{} `json:"params"`
+}
+
+const (
 	UNBOUND_TIME_OFFSET = "unboundTimeOffset"
 	TOTAL_SUPPLY_NAME   = "totalSupply"
 	INIT_NAME           = "init"
@@ -28,13 +93,12 @@ const (
 	BALANCEOF_NAME      = "balanceOf"
 	ALLOWANCE_NAME      = "allowance"
 )
-var one = new(big.Int).SetInt64(1)
 
+var one = new(big.Int).SetInt64(1)
 
 type invertible interface {
 	Inverse(*big.Int) *big.Int
 }
-
 
 const (
 	aesIV = "IV for <SM2> CTR"
@@ -42,10 +106,13 @@ const (
 	// DEFAULT_ID is the default user id used in Sign and Verify
 	DEFAULT_ID = "1234567812345678"
 )
+
 var zeroReader = &zr{}
+
 type zr struct {
 	io.Reader
 }
+
 var (
 	ONT_CONTRACT_ADDRESS, _           = AddressFromHexString("0100000000000000000000000000000000000000")
 	ONG_CONTRACT_ADDRESS, _           = AddressFromHexString("0200000000000000000000000000000000000000")
@@ -1248,7 +1315,6 @@ func serializeDSA(sig *DSASignature) []byte {
 	copy(res[size*2-len(s):], s)
 	return res
 }
-
 
 type SM2Curve interface {
 	elliptic.Curve

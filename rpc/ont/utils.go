@@ -97,6 +97,31 @@ func (bd *Header) deserializationUnsigned(source *ZeroCopySource) error {
 	}
 	return nil
 }
+func (bd *Header) Hash() Uint256 {
+	if bd.hash != nil {
+		return *bd.hash
+	}
+	sink := NewZeroCopySink(nil)
+	bd.serializationUnsigned(sink)
+	temp := sha256.Sum256(sink.Bytes())
+	hash := Uint256(sha256.Sum256(temp[:]))
+
+	bd.hash = &hash
+	return hash
+}
+
+//Serialize the blockheader data without program
+func (bd *Header) serializationUnsigned(sink *ZeroCopySink) {
+	sink.WriteUint32(bd.Version)
+	sink.WriteBytes(bd.PrevBlockHash[:])
+	sink.WriteBytes(bd.TransactionsRoot[:])
+	sink.WriteBytes(bd.BlockRoot[:])
+	sink.WriteUint32(bd.Timestamp)
+	sink.WriteUint32(bd.Height)
+	sink.WriteUint64(bd.ConsensusData)
+	sink.WriteVarBytes(bd.ConsensusPayload)
+	sink.WriteBytes(bd.NextBookkeeper[:])
+}
 
 var ErrIrregularData = errors.New("irregular data")
 

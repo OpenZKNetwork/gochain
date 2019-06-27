@@ -23,7 +23,6 @@ import (
 	"encoding/binary"
 	"math/big"
 
-	"github.com/ontio/ontology/common"
 )
 
 // type OpCode byte
@@ -196,7 +195,7 @@ func (p *ParamsBuilder) EmitPushInteger(data *big.Int) {
 		return
 	}
 
-	bytes := common.BigIntToNeoBytes(data)
+	bytes := BigIntToNeoBytes(data)
 	p.EmitPushByteArray(bytes)
 }
 
