@@ -256,6 +256,12 @@ type Transaction struct {
 	nonDirectConstracted bool // used to check literal construction like `tx := &Transaction{...}`
 }
 
+func (tx *Transaction) ToArray() []byte {
+	b := new(bytes.Buffer)
+	tx.Serialize(b)
+	return b.Bytes()
+}
+
 func (tx *Transaction) Hash() Uint256 {
 	return tx.hash
 }

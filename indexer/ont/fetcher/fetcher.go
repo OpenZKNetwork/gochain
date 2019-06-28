@@ -59,25 +59,33 @@ func (fetcher *fetchImpl) FetchAndHandle(offset int64) (bool, error) {
 	blockNumber := block.Header.Height
 	blockTime := time.Unix(int64(block.Header.Timestamp), 0)
 	for _, tx := range block.Transactions {
-		fetcher.TraceF("handle tx(%s) ", tx.Hash)
-		err := fetcher.handler.TX(tx, int64(blockNumber), blockTime)
+		// fetcher.ErrorF("tx type %s",tx.Type())
+		raw,err:=ont.ParseNativeTxPayload(tx.ToArray())
+		if err!=nil{
+			fetcher.ErrorF("ParseNativeTxPayload %s",err)
+		}
+		fetcher.DebugF("raw %+v ",raw)
+		txHash := tx.Hash()
+		fetcher.TraceF("handle tx(%s) ", txHash.ToHexString())
+		err = fetcher.handler.TX(tx, int64(blockNumber), blockTime)
 
 		if err != nil {
-			fetcher.ErrorF("handle tx(%s) err %s", tx.Hash, err)
+			fetcher.ErrorF("handle tx(%s) err %s", txHash.ToHexString(), err)
 			return false, err
 		}
 
-		fetcher.TraceF("handle tx(%s) -- success", tx.Hash)
+		fetcher.TraceF("handle tx(%s) -- success", txHash.ToHexString())
 	}
 
-	fetcher.TraceF("handle block(%s)", block.Header.Hash())
+	blockHash := block.Header.Hash()
+	fetcher.TraceF("handle block(%s)", blockHash.ToHexString())
 
 	if err := fetcher.handler.Block(block, int64(blockNumber), blockTime); err != nil {
-		fetcher.ErrorF("handle block(%s) err %s", block.Header.Hash(), err)
+		fetcher.ErrorF("handle block(%s) err %s", blockHash.ToHexString(), err)
 		return false, err
 	}
 
-	fetcher.TraceF("handle block(%s) -- success", block.Header.Hash())
+	fetcher.TraceF("handle block(%s) -- success", blockHash.ToHexString())
 
 	return true, err
 }

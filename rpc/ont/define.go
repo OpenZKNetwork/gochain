@@ -12,6 +12,8 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+
+	base58 "github.com/itchyny/base58-go"
 )
 
 const (
@@ -235,24 +237,25 @@ func (self *MutableTransaction) Hash() Uint256 {
 	return tx.Hash()
 }
 
-// func (self *MutableTransaction) GetSignatureAddresses() []Address {
-// 	address := make([]Address, 0, len(self.Sigs))
-// 	for _, sig := range self.Sigs {
-// 		m := int(sig.M)
-// 		n := len(sig.PubKeys)
+//GetSignatureAddresses .
+func (self *MutableTransaction) GetSignatureAddresses() []Address {
+	address := make([]Address, 0, len(self.Sigs))
+	for _, sig := range self.Sigs {
+		m := int(sig.M)
+		n := len(sig.PubKeys)
 
-// 		if n == 1 {
-// 			address = append(address, AddressFromPubKey(sig.PubKeys[0]))
-// 		} else {
-// 			addr, err := AddressFromMultiPubKeys(sig.PubKeys, m)
-// 			if err != nil {
-// 				return nil
-// 			}
-// 			address = append(address, addr)
-// 		}
-// 	}
-// 	return address
-// }
+		if n == 1 {
+			address = append(address, AddressFromPubKey(sig.PubKeys[0]))
+		} else {
+			addr, err := AddressFromMultiPubKeys(sig.PubKeys, m)
+			if err != nil {
+				return nil
+			}
+			address = append(address, addr)
+		}
+	}
+	return address
+}
 
 // Serialize the Transaction
 func (tx *MutableTransaction) serialize(sink *ZeroCopySink) error {
@@ -303,59 +306,6 @@ func (tx *MutableTransaction) serializeUnsigned(sink *ZeroCopySink) error {
 	return nil
 }
 
-// func (tx *MutableTransaction) DeserializeUnsigned(r io.Reader) error {
-// 	var versiontype [2]byte
-// 	_, err := io.ReadFull(r, versiontype[:])
-// 	if err != nil {
-// 		return err
-// 	}
-// 	nonce, err := serialization.ReadUint32(r)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	gasPrice, err := serialization.ReadUint64(r)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	gasLimit, err := serialization.ReadUint64(r)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	tx.Version = versiontype[0]
-// 	tx.TxType = TransactionType(versiontype[1])
-// 	tx.Nonce = nonce
-// 	tx.GasPrice = gasPrice
-// 	tx.GasLimit = gasLimit
-// 	if err := tx.Payer.Deserialize(r); err != nil {
-// 		return err
-// 	}
-
-// 	switch tx.TxType {
-// 	case Invoke:
-// 		tx.Payload = new(payload.InvokeCode)
-// 	case Deploy:
-// 		tx.Payload = new(payload.DeployCode)
-// 	default:
-// 		return fmt.Errorf("unsupported tx type %v", tx.TxType)
-// 	}
-
-// 	err = tx.Payload.Deserialize(r)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	//attributes
-// 	length, err := serialization.ReadVarUint(r, 0)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	if length != 0 {
-// 		return fmt.Errorf("transaction attribute must be 0, got %d", length)
-// 	}
-// 	tx.attributes = 0
-
-// 	return nil
-// }
 // PublicKey represents a public key using an unspecified algorithm.
 type PublicKey crypto.PublicKey
 
@@ -640,6 +590,23 @@ func (dc *DeployCode) Deserialize(r io.Reader) error {
 const ADDR_LEN = 20
 
 type Address [ADDR_LEN]byte
+
+// ToBase58 returns base58 encoded address string
+func (f *Address) ToBase58() string {
+	data := append([]byte{23}, f[:]...)
+	temp := sha256.Sum256(data)
+	temps := sha256.Sum256(temp[:])
+	data = append(data, temps[0:4]...)
+
+	bi := new(big.Int).SetBytes(data).String()
+	encoded, _ := base58.BitcoinEncoding.Encode([]byte(bi))
+	return string(encoded)
+}
+
+// ToHexString returns  hex string representation of Address
+func (f *Address) ToHexString() string {
+	return fmt.Sprintf("%x", ToArrayReverse(f[:]))
+}
 
 type SmartContract DeployCode
 

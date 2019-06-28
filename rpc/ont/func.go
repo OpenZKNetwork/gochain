@@ -70,6 +70,27 @@ func ToArrayReverse(arr []byte) []byte {
 	return x
 }
 
+func AddressFromMultiPubKeys(pubkeys []PublicKey, m int) (Address, error) {
+	var addr Address
+	n := len(pubkeys)
+	if !(1 <= m && m <= n && n > 1 && n <= MULTI_SIG_MAX_PUBKEY_SIZE) {
+		return addr, errors.New("wrong multi-sig param")
+	}
+
+	prog, err := ProgramFromMultiPubKey(pubkeys, m)
+	if err != nil {
+		return addr, err
+	}
+
+	return AddressFromVmCode(prog), nil
+}
+
+func ProgramFromMultiPubKey(pubkeys []PublicKey, m int) ([]byte, error) {
+	sink := ZeroCopySink{}
+	err := EncodeMultiPubKeyProgramInto(&sink, pubkeys, m)
+	return sink.Bytes(), err
+}
+
 // FileExisted checks whether filename exists in filesystem
 func FileExisted(filename string) bool {
 	_, err := os.Stat(filename)
@@ -1276,4 +1297,209 @@ func PubKeysEqual(pks1, pks2 []PublicKey) bool {
 		}
 	}
 	return true
+}
+
+func ParseNativeTxPayload(raw []byte) (map[string]interface{}, error) {
+	tx, err := TransactionFromRawBytes(raw)
+	if err != nil {
+		return nil, err
+	}
+	invokeCode, ok := tx.Payload.(*InvokeCode)
+	if !ok {
+		return nil, fmt.Errorf("error payload")
+	}
+	code := invokeCode.Code
+	return ParsePayload(code)
+}
+
+func ParsePayload(code []byte) (map[string]interface{}, error) {
+	codeHex := ToHexString(code)
+	l := len(code)
+	if l > 44 && string(code[l-22:]) == "Ontology.Native.Invoke" {
+		if l > 54 && string(code[l-46-8:l-46]) == "transfer" {
+			source := NewZeroCopySource(code)
+			err := ignoreOpCode(source)
+			if err != nil {
+				return nil, err
+			}
+			source.BackUp(1)
+			from, err := readAddress(source)
+			if err != nil {
+				return nil, err
+			}
+			res := make(map[string]interface{})
+			res["functionName"] = "transfer"
+			res["from"] = from.ToBase58()
+			err = ignoreOpCode(source)
+			if err != nil {
+				return nil, err
+			}
+			source.BackUp(1)
+			to, err := readAddress(source)
+			if err != nil {
+				return nil, err
+			}
+			res["to"] = to.ToBase58()
+			err = ignoreOpCode(source)
+			if err != nil {
+				return nil, err
+			}
+			source.BackUp(1)
+			var amount = uint64(0)
+			if string(codeHex[source.Pos()*2]) == "5" || string(codeHex[source.Pos()*2]) == "6" {
+				data, eof := source.NextByte()
+				if eof {
+					return nil, io.ErrUnexpectedEOF
+				}
+				b := BigIntFromNeoBytes([]byte{data})
+				amount = b.Uint64() - 0x50
+			} else {
+				amountBytes, _, irregular, eof := source.NextVarBytes()
+				if irregular || eof {
+					return nil, io.ErrUnexpectedEOF
+				}
+				amount = BigIntFromNeoBytes(amountBytes).Uint64()
+			}
+
+			res["amount"] = amount
+			if ToHexString(ToArrayReverse(code[l-25-20:l-25])) == ONT_CONTRACT_ADDRESS.ToHexString() {
+				res["asset"] = "ont"
+			} else if ToHexString(ToArrayReverse(code[l-25-20:l-25])) == ONG_CONTRACT_ADDRESS.ToHexString() {
+				res["asset"] = "ong"
+			} else {
+				return nil, fmt.Errorf("not ont or ong contractAddress")
+			}
+			err = ignoreOpCode(source)
+			if err != nil {
+				return nil, err
+			}
+			source.BackUp(1)
+			//method name
+			_, _, irregular, eof := source.NextVarBytes()
+			if irregular || eof {
+				return nil, io.ErrUnexpectedEOF
+			}
+			//contract address
+			contractAddress, err := readAddress(source)
+			if err != nil {
+				return nil, err
+			}
+			res["contractAddress"] = contractAddress
+			return res, nil
+		} else if l > 58 && string(code[l-46-12:l-46]) == "transferFrom" {
+			res := make(map[string]interface{})
+			res["functionName"] = "transferFrom"
+			source := NewZeroCopySource(code)
+			err := ignoreOpCode(source)
+			if err != nil {
+				return nil, err
+			}
+			source.BackUp(1)
+			sender, err := readAddress(source)
+			if err != nil {
+				return nil, err
+			}
+			res["sender"] = sender.ToBase58()
+
+			err = ignoreOpCode(source)
+			if err != nil {
+				return nil, err
+			}
+			source.BackUp(1)
+			from, err := readAddress(source)
+			if err != nil {
+				return nil, err
+			}
+			res["from"] = from.ToBase58()
+			err = ignoreOpCode(source)
+			if err != nil {
+				return nil, err
+			}
+			source.BackUp(1)
+			to, err := readAddress(source)
+			if err != nil {
+				return nil, err
+			}
+			res["to"] = to.ToBase58()
+			err = ignoreOpCode(source)
+			if err != nil {
+				return nil, err
+			}
+			source.BackUp(1)
+			var amount = uint64(0)
+			if string(codeHex[source.Pos()*2]) == "5" || string(codeHex[source.Pos()*2]) == "6" {
+				//read amount
+				data, eof := source.NextByte()
+				if eof {
+					return nil, io.ErrUnexpectedEOF
+				}
+				b := BigIntFromNeoBytes([]byte{data})
+				amount = b.Uint64() - 0x50
+			} else {
+				amountBytes, _, irregular, eof := source.NextVarBytes()
+				if irregular || eof {
+					return nil, io.ErrUnexpectedEOF
+				}
+				amount = BigIntFromNeoBytes(amountBytes).Uint64()
+			}
+			res["amount"] = amount
+			if ToHexString(ToArrayReverse(code[l-25-20:l-25])) == ONT_CONTRACT_ADDRESS.ToHexString() {
+				res["asset"] = "ont"
+			} else if ToHexString(ToArrayReverse(code[l-25-20:l-25])) == ONG_CONTRACT_ADDRESS.ToHexString() {
+				res["asset"] = "ong"
+				res["amount"] = amount
+			}
+			err = ignoreOpCode(source)
+			if err != nil {
+				return nil, err
+			}
+			source.BackUp(1)
+			//method name
+			_, _, irregular, eof := source.NextVarBytes()
+			if irregular || eof {
+				return nil, io.ErrUnexpectedEOF
+			}
+			//contract address
+			contractAddress, err := readAddress(source)
+			if err != nil {
+				return nil, err
+			}
+			res["contractAddress"] = contractAddress
+			return res, nil
+		}
+	}
+	return nil, fmt.Errorf("not native transfer and transferFrom transaction")
+}
+
+func readAddress(source *ZeroCopySource) (Address, error) {
+	senderBytes, _, irregular, eof := source.NextVarBytes()
+	if irregular || eof {
+		return ADDRESS_EMPTY, io.ErrUnexpectedEOF
+	}
+	sender, err := AddressParseFromBytes(senderBytes)
+	if err != nil {
+		return ADDRESS_EMPTY, err
+	}
+	return sender, nil
+}
+
+var OPCODE_IN_PAYLOAD = map[byte]bool{0x00: true, 0xc6: true, 0x6b: true, 0x6a: true, 0xc8: true, 0x6c: true, 0x68: true, 0x67: true,
+	0x7c: true, 0x51: true, 0xc1: true}
+
+func ignoreOpCode(source *ZeroCopySource) error {
+	s := source.Size()
+	for {
+		if source.Pos() >= s {
+			return nil
+		}
+		by, eof := source.NextByte()
+		if eof {
+			return io.EOF
+		}
+		if OPCODE_IN_PAYLOAD[by] {
+			continue
+		} else {
+			return nil
+		}
+	}
 }
