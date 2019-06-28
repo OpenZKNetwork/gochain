@@ -59,12 +59,6 @@ func (fetcher *fetchImpl) FetchAndHandle(offset int64) (bool, error) {
 	blockNumber := block.Header.Height
 	blockTime := time.Unix(int64(block.Header.Timestamp), 0)
 	for _, tx := range block.Transactions {
-		// fetcher.ErrorF("tx type %s",tx.Type())
-		raw,err:=ont.ParseNativeTxPayload(tx.ToArray())
-		if err!=nil{
-			fetcher.ErrorF("ParseNativeTxPayload %s",err)
-		}
-		fetcher.DebugF("raw %+v ",raw)
 		txHash := tx.Hash()
 		fetcher.TraceF("handle tx(%s) ", txHash.ToHexString())
 		err = fetcher.handler.TX(tx, int64(blockNumber), blockTime)

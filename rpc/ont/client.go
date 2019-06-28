@@ -21,7 +21,7 @@ type Client interface {
 	BestBlockNumber() (uint32, error)
 	GetBlockByNumber(number uint32) (val *Block, err error)
 	GetTransactionByHash(tx string) (val *Transaction, err error)
-	SendRawTransaction(gasPrice, gasLimit uint64, from *Account, to Address, amount uint64) (Uint256, error)
+	SendRawTransaction(tx []byte) (string, error)
 	// BalanceOfAsset(address string, asset string, decimals int) (*fixed.Number, error)
 	// DecimalsOfAsset(asset string) (int, error)
 	GetTransactionReceipt(tx string) (val *SmartContactEvent, err error)
@@ -184,29 +184,35 @@ func (client *clientImpl) GetRawTransactionParams(tx *Transaction, isPreExec boo
 	return params, nil
 }
 
-func (client *clientImpl) SendRawTransaction(gasPrice, gasLimit uint64, from *Account, to Address, amount uint64) (Uint256, error) {
-	tx, err := client.NewTransferTransaction(gasPrice, gasLimit, from.Address, to, amount)
+func (client *clientImpl) SendRawTransaction(tx []byte) (string, error) {
+	// tx, err := client.NewTransferTransaction(gasPrice, gasLimit, from.Address, to, amount)
+	// if err != nil {
+	// 	return UINT256_EMPTY, err
+	// }
+	// err = client.SignToTransaction(tx, from)
+	// if err != nil {
+	// 	return UINT256_EMPTY, err
+	// }
+	// mutTx, err := tx.IntoImmutable()
+	// if err != nil {
+	// 	return UINT256_EMPTY, err
+	// }
+	// rawparams, err := client.GetRawTransactionParams(mutTx, false)
+	// if err != nil {
+	// 	return UINT256_EMPTY, err
+	// }
+	txData := hex.EncodeToString(tx)
+	rawParams := []interface{}{txData}
+	data, err := client.sendRequest(sendTransaction, rawParams)
 	if err != nil {
-		return UINT256_EMPTY, err
+		return "", err
 	}
-	err = client.SignToTransaction(tx, from)
+	res, err := GetUint256(data)
 	if err != nil {
-		return UINT256_EMPTY, err
-	}
-	mutTx, err := tx.IntoImmutable()
-	if err != nil {
-		return UINT256_EMPTY, err
-	}
-	rawparams, err := client.GetRawTransactionParams(mutTx, false)
-	if err != nil {
-		return UINT256_EMPTY, err
+		return "", err
 	}
 
-	data, err := client.sendRequest(sendTransaction, rawparams)
-	if err != nil {
-		return UINT256_EMPTY, err
-	}
-	return GetUint256(data)
+	return res.ToHexString(), nil
 }
 func (client *clientImpl) NewTransferTransaction(gasPrice, gasLimit uint64, from, to Address, amount uint64) (*MutableTransaction, error) {
 	state := &State{
