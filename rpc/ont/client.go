@@ -30,7 +30,7 @@ type Client interface {
 	Decimals() (uint64, error)
 	TotalSupply() (uint64, error)
 	Symbol() (string, error)
-	Transfer(gasPrice, gasLimit uint64, from *Account, to Address, amount uint64) (string, error)
+	// Transfer(gasPrice, gasLimit uint64, from *Account, to Address, amount uint64) (string, error)
 }
 
 type clientImpl struct {
