@@ -151,8 +151,6 @@ const (
 	SeedSize = 32
 )
 
-var Reader io.Reader
-
 var ADDRESS_EMPTY = Address{}
 
 type Uint256 [UINT256_SIZE]byte

@@ -494,8 +494,10 @@ func TransactionFromRawBytes(raw []byte) (*Transaction, error) {
 	tx := &Transaction{Raw: raw}
 	err := tx.Deserialization(source)
 	if err != nil {
+	
 		return nil, err
 	}
+	
 	return tx, nil
 }
 

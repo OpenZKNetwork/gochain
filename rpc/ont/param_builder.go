@@ -22,7 +22,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"math/big"
-
 )
 
 // type OpCode byte

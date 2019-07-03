@@ -279,8 +279,8 @@ func GenerateKey(curve elliptic.Curve, rand io.Reader) (priv []byte, x, y *big.I
 	bitSize := N.BitLen()
 	byteLen := (bitSize + 7) >> 3
 	priv = make([]byte, byteLen)
-
 	for x == nil {
+		
 		_, err = io.ReadFull(rand, priv)
 		if err != nil {
 			return

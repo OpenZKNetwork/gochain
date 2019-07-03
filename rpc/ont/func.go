@@ -34,12 +34,14 @@ import (
 	"io"
 	"math/big"
 	"math/rand"
+	rand2 "crypto/rand"
 	"os"
 	"reflect"
 	"sort"
 	"strconv"
 	"strings"
 
+	base58 "github.com/itchyny/base58-go"
 	"golang.org/x/crypto/ed25519"
 	"golang.org/x/crypto/ripemd160"
 )
@@ -558,7 +560,7 @@ func curveSqrt(ySquare *big.Int, curve *elliptic.CurveParams) *big.Int {
 		lucasParamP := big.NewInt(0)
 		for {
 			tmp5 := big.NewInt(0)
-			lucasParamP, _ = Prime(Reader, curve.P.BitLen())
+			lucasParamP, _ = Prime(rand2.Reader, curve.P.BitLen())
 
 			if lucasParamP.Cmp(curve.P) < 0 {
 				tmp5.Mul(lucasParamP, lucasParamP)
@@ -891,6 +893,41 @@ func AddressFromHexString(s string) (Address, error) {
 	return AddressParseFromBytes(ToArrayReverse(hx))
 }
 
+const MaxBase58AddrLen = 2048 // just to avoid dos
+// AddressFromBase58 returns Address from encoded base58 string
+func AddressFromBase58(encoded string) (Address, error) {
+	if encoded == "" || len(encoded) > MaxBase58AddrLen {
+		return ADDRESS_EMPTY, errors.New("invalid address")
+	}
+	decoded, err := base58.BitcoinEncoding.Decode([]byte(encoded))
+	if err != nil {
+		return ADDRESS_EMPTY, err
+	}
+
+	x, ok := new(big.Int).SetString(string(decoded), 10)
+	if !ok {
+		return ADDRESS_EMPTY, errors.New("invalid address")
+	}
+
+	buf := x.Bytes()
+	if len(buf) != 1+ADDR_LEN+4 || buf[0] != byte(23) {
+		return ADDRESS_EMPTY, errors.New("wrong encoded address")
+	}
+
+	ph, err := AddressParseFromBytes(buf[1:21])
+	if err != nil {
+		return ADDRESS_EMPTY, err
+	}
+
+	addr := ph.ToBase58()
+
+	if addr != encoded {
+		return ADDRESS_EMPTY, errors.New("[AddressFromBase58]: decode encoded verify failed.")
+	}
+
+	return ph, nil
+}
+
 func AddressFromPubKey(pubkey PublicKey) Address {
 	prog := ProgramFromPubKey(pubkey)
 
@@ -915,9 +952,9 @@ func GenerateKeyPair(t KeyType, opts interface{}) (PrivateKey, PublicKey, error)
 		}
 
 		if t == PK_ECDSA {
-			return GenerateECKeyPair(c, Reader, ECDSA)
+			return GenerateECKeyPair(c, rand2.Reader, ECDSA)
 		} else {
-			return GenerateECKeyPair(c, Reader, SM2)
+			return GenerateECKeyPair(c, rand2.Reader, SM2)
 		}
 
 	case PK_EDDSA:
@@ -927,7 +964,7 @@ func GenerateKeyPair(t KeyType, opts interface{}) (PrivateKey, PublicKey, error)
 		}
 
 		if param == ED25519 {
-			pub, pri, err := ed25519GenerateKey(Reader)
+			pub, pri, err := ed25519GenerateKey(rand2.Reader)
 			return pri, pub, err
 		} else {
 			return nil, nil, errors.New(err_generate + "unsupported EdDSA scheme")
@@ -941,7 +978,7 @@ func GenerateKeyPair(t KeyType, opts interface{}) (PrivateKey, PublicKey, error)
 // If rand is nil, crypto/rand.Reader will be used.
 func ed25519GenerateKey(rand io.Reader) (PublicKeyBytes, PrivateKeyBytes, error) {
 	if rand == nil {
-		rand = Reader
+		rand = rand2.Reader
 	}
 
 	seed := make([]byte, SeedSize)
@@ -1022,7 +1059,7 @@ func Sign(scheme SignatureScheme, pri PrivateKey, msg []byte, opt interface{}) (
 			if opt, ok := opt.(string); ok {
 				id = opt
 			}
-			r, s, err0 := SM2Sign(Reader, key.PrivateKey, id, msg, hasher)
+			r, s, err0 := SM2Sign(rand2.Reader, key.PrivateKey, id, msg, hasher)
 			if err0 != nil {
 				err = err0
 				return
@@ -1044,7 +1081,7 @@ func Sign(scheme SignatureScheme, pri PrivateKey, msg []byte, opt interface{}) (
 			hasher.Write(msg)
 			digest := hasher.Sum(nil)
 
-			r, s, err0 := ecdsa.Sign(Reader, key.PrivateKey, digest)
+			r, s, err0 := ecdsa.Sign(rand2.Reader, key.PrivateKey, digest)
 			if err0 != nil {
 				err = err0
 				return
@@ -1205,10 +1242,11 @@ func ProgramFromPubKey(pubkey PublicKey) []byte {
 }
 
 func GenerateECKeyPair(c elliptic.Curve, rand io.Reader, alg ECAlgorithm) (*ECPrivateKey, *ECPublicKey, error) {
-	d, x, y, err := GenerateKey(c, rand)
+	d, x, y, err := elliptic.GenerateKey(c, rand)
 	if err != nil {
 		return nil, nil, errors.New("Generate ec key pair failed, " + err.Error())
 	}
+
 	pri := ECPrivateKey{
 		Algorithm: alg,
 		PrivateKey: &ecdsa.PrivateKey{
@@ -1308,6 +1346,7 @@ func ParseNativeTxPayload(raw []byte) (map[string]interface{}, error) {
 	if !ok {
 		return nil, fmt.Errorf("error payload")
 	}
+	
 	code := invokeCode.Code
 	return ParsePayload(code)
 }
@@ -1316,6 +1355,7 @@ func ParsePayload(code []byte) (map[string]interface{}, error) {
 	codeHex := ToHexString(code)
 	l := len(code)
 	if l > 44 && string(code[l-22:]) == "Ontology.Native.Invoke" {
+
 		if l > 54 && string(code[l-46-8:l-46]) == "transfer" {
 			source := NewZeroCopySource(code)
 			err := ignoreOpCode(source)
@@ -1334,6 +1374,7 @@ func ParsePayload(code []byte) (map[string]interface{}, error) {
 			if err != nil {
 				return nil, err
 			}
+
 			source.BackUp(1)
 			to, err := readAddress(source)
 			if err != nil {
@@ -1373,6 +1414,7 @@ func ParsePayload(code []byte) (map[string]interface{}, error) {
 			if err != nil {
 				return nil, err
 			}
+			fmt.Printf("res %+v \n",res)
 			source.BackUp(1)
 			//method name
 			_, _, irregular, eof := source.NextVarBytes()
@@ -1387,6 +1429,7 @@ func ParsePayload(code []byte) (map[string]interface{}, error) {
 			res["contractAddress"] = contractAddress
 			return res, nil
 		} else if l > 58 && string(code[l-46-12:l-46]) == "transferFrom" {
+
 			res := make(map[string]interface{})
 			res["functionName"] = "transferFrom"
 			source := NewZeroCopySource(code)

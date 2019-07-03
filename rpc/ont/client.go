@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"net/http"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -29,6 +30,7 @@ type Client interface {
 	Decimals() (uint64, error)
 	TotalSupply() (uint64, error)
 	Symbol() (string, error)
+	Transfer(gasPrice, gasLimit uint64, from *Account, to Address, amount uint64) (string, error)
 }
 
 type clientImpl struct {
@@ -36,6 +38,7 @@ type clientImpl struct {
 	slf4go.Logger
 	httpClient *http.Client
 	addr       string
+	idMux      sync.Mutex
 }
 
 //New return RPCImpl instance
@@ -184,6 +187,34 @@ func (client *clientImpl) GetRawTransactionParams(tx *Transaction, isPreExec boo
 	return params, nil
 }
 
+func (client *clientImpl) Transfer(gasPrice, gasLimit uint64, from *Account, to Address, amount uint64) (string, error) {
+	tx, err := client.NewTransferTransaction(gasPrice, gasLimit, from.Address, to, amount)
+	if err != nil {
+		return "", err
+	}
+	err = client.SignToTransaction(tx, from)
+	if err != nil {
+		return "", err
+	}
+	mutTx, err := tx.IntoImmutable()
+	if err != nil {
+		return "", err
+	}
+	rawparams, err := client.GetRawTransactionParams(mutTx, false)
+	if err != nil {
+		return "", err
+	}
+	data, err := client.sendRequest(sendTransaction, rawparams)
+	if err != nil {
+		return "", err
+	}
+	res, err := GetUint256(data)
+	if err != nil {
+		return "", err
+	}
+
+	return res.ToHexString(), nil
+}
 func (client *clientImpl) SendRawTransaction(tx []byte) (string, error) {
 	// tx, err := client.NewTransferTransaction(gasPrice, gasLimit, from.Address, to, amount)
 	// if err != nil {
@@ -375,6 +406,9 @@ func (client *clientImpl) GetNextQid() string {
 
 //sendRequest send Rpc request to ontology
 func (client *clientImpl) sendRequest(method string, params []interface{}) ([]byte, error) {
+	client.idMux.Lock()
+	client.qid++
+	client.idMux.Unlock()
 	rpcReq := &JSONReqest{
 		Version: jsonRPCVersion,
 		ID:      client.GetNextQid(),
@@ -403,6 +437,6 @@ func (client *clientImpl) sendRequest(method string, params []interface{}) ([]by
 	if rpcRsp.Error != 0 {
 		return nil, fmt.Errorf("JsonRpcResponse error code:%d desc:%s result:%s", rpcRsp.Error, rpcRsp.Desc, rpcRsp.Result)
 	}
-	client.qid++
+
 	return rpcRsp.Result, nil
 }
