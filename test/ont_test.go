@@ -4,17 +4,22 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"math/big"
 	"os"
+	"reflect"
 	"strconv"
 	"testing"
 
+	"github.com/openzknetwork/gochain/script/neo/script"
+
 	"github.com/openzknetwork/gochain/tx"
 	_ "github.com/openzknetwork/gochain/tx/provider"
-	_ "github.com/openzknetwork/key/encryptor"
 	"github.com/openzknetwork/key"
+	_ "github.com/openzknetwork/key/encryptor"
 	_ "github.com/openzknetwork/key/provider"
 
 	"github.com/dynamicgo/fixed"
+	"github.com/dynamicgo/xerrors"
 	"github.com/openzknetwork/gochain/rpc/ont"
 
 	"github.com/ontio/ontology-crypto/ec"
@@ -338,52 +343,224 @@ func TestLocalTransaction(t *testing.T) {
 	fmt.Printf("res %s \n", res)
 }
 
-func TestTransfer(t *testing.T) {
+// func TestTransfer(t *testing.T) {
 
+// 	k, err := key.New("ont")
+// 	if err != nil {
+// 		fmt.Println(err.Error())
+// 		return
+// 	}
+
+// 	err = key.Decrypt("wif", k, nil, bytes.NewBufferString("L1MNCbtnfUBvSebyrhjE3QmmvUaUXLziyWEjkVGHJhCusMXYAyKB"))
+// 	println("address ", k.Address())
+
+// 	client := ont.New("http://polaris1.ont.io:20336")
+// 	println("from ", k.Address())
+// 	p := ec.ConstructPrivateKey(k.PriKey(), k.Provider().Curve())
+// 	privaKey := &ont.ECPrivateKey{
+// 		Algorithm:  ont.ECDSA,
+// 		PrivateKey: p,
+// 	}
+
+// 	from, err := ont.AddressFromBase58(k.Address())
+// 	if err != nil {
+// 		fmt.Println(err.Error())
+// 		return
+// 	}
+
+// 	to, err := ont.AddressFromBase58("ASknPJZK6QVjkPB6or6X6WDF422az98LCs")
+// 	if err != nil {
+// 		fmt.Println(err.Error())
+// 		return
+// 	}
+// 	pub := &ont.ECPublicKey{
+// 		Algorithm: ont.ECDSA,
+// 		PublicKey: &p.PublicKey,
+// 	}
+// 	signer := &ont.Account{
+// 		PrivateKey: privaKey,
+// 		PublicKey:  pub,
+// 		Address:    from,
+// 		SigScheme:  ont.SHA3_256withECDSA,
+// 	}
+// 	// res, err := client.SendRawTransaction(data)
+// 	res, err := client.Transfer(10000, 500, signer, to, 1)
+// 	if err != nil {
+// 		fmt.Printf("SendRawTransaction error %s \n", err.Error())
+// 		return
+// 	}
+
+// 	fmt.Printf("res %s \n", res)
+// }
+
+func TestScript(t *testing.T) {
 	k, err := key.New("ont")
 	if err != nil {
-		fmt.Println(err.Error())
+		fmt.Printf("key.New error %s \n", err.Error())
 		return
 	}
 
 	err = key.Decrypt("wif", k, nil, bytes.NewBufferString("L1MNCbtnfUBvSebyrhjE3QmmvUaUXLziyWEjkVGHJhCusMXYAyKB"))
-	println("address ", k.Address())
-
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+	const (
+		ONT_CONTRACT_ADDRESS = "0100000000000000000000000000000000000000"
+		ONG_CONTRACT_ADDRESS = "0200000000000000000000000000000000000000"
+	)
 	client := ont.New("http://polaris1.ont.io:20336")
-	println("from ", k.Address())
-	p := ec.ConstructPrivateKey(k.PriKey(), k.Provider().Curve())
-	privaKey := &ont.ECPrivateKey{
-		Algorithm:  ont.ECDSA,
-		PrivateKey: p,
-	}
 
-	from, err := ont.AddressFromBase58(k.Address())
+	fromAddess, _ := ont.AddressFromBase58(k.Address())
+	from := fromAddess.ToHexString()
+	toAddess, _ := ont.AddressFromBase58("ASknPJZK6QVjkPB6or6X6WDF422az98LCs")
+	to := toAddess.ToHexString()
+	fmt.Printf("from hex %s   to hex %s \n", from, to)
+	st, err := script.New(k.Address()).NewScript(ONG_CONTRACT_ADDRESS, from, to, ont.ONT_CONTRACT_VERSION, ont.TRANSFER_NAME, 1)
 	if err != nil {
-		fmt.Println(err.Error())
+		fmt.Printf("NewScript error %s \n", err.Error())
 		return
 	}
 
-	to, err := ont.AddressFromBase58("ASknPJZK6QVjkPB6or6X6WDF422az98LCs")
+	data, _, err := tx.RawTransaction("ont", k, &tx.OntTxRequest{
+		// To:        "ASknPJZK6QVjkPB6or6X6WDF422az98LCs",
+		GasPrice:  1000,
+		GasLimits: 500,
+		// Value:     1,
+		Script: st,
+	}, nil)
+
 	if err != nil {
-		fmt.Println(err.Error())
+		fmt.Printf("RawTransaction error %s \n", err.Error())
 		return
 	}
-	pub := &ont.ECPublicKey{
-		Algorithm: ont.ECDSA,
-		PublicKey: &p.PublicKey,
-	}
-	signer := &ont.Account{
-		PrivateKey: privaKey,
-		PublicKey:  pub,
-		Address:    from,
-		SigScheme:  ont.SHA3_256withECDSA,
-	}
-	// res, err := client.SendRawTransaction(data)
-	res, err := client.Transfer(10000, 500, signer, to, 1)
+	res, err := client.SendRawTransaction(data)
 	if err != nil {
 		fmt.Printf("SendRawTransaction error %s \n", err.Error())
 		return
 	}
 
 	fmt.Printf("res %s \n", res)
+}
+
+func NewScript(contractAddress, from, to string, version byte, method string, amount uint64) ([]byte, error) {
+	builder := script.New(from)
+	contractAddr, err := ont.AddressFromHexString(contractAddress)
+	if err != nil {
+		return nil, xerrors.Wrapf(err, "parse contract address error")
+	}
+	fromAddr, err := ont.AddressFromHexString(from)
+	if err != nil {
+		return nil, xerrors.Wrapf(err, "parse from address error")
+	}
+	toAddr, err := ont.AddressFromHexString(to)
+	if err != nil {
+		return nil, xerrors.Wrapf(err, "parse to address error")
+	}
+	state := &ont.State{
+		From:  fromAddr,
+		To:    toAddr,
+		Value: amount,
+	}
+	params := []interface{}{[]*ont.State{state}}
+	if params == nil {
+		params = make([]interface{}, 0, 1)
+	}
+	if len(params) == 0 {
+		params = append(params, "")
+	}
+
+	err = BuildNeoVMParam(builder, params)
+	if err != nil {
+		return nil, err
+	}
+	builder.EmitPushBytes([]byte(method))
+	builder.EmitPushBytes(contractAddr[:])
+	builder.EmitPushInteger(new(big.Int).SetInt64(int64(version)))
+	builder.Emit(script.SYSCALL, nil)
+	builder.EmitPushBytes([]byte(NATIVE_INVOKE_NAME))
+
+	return builder.Bytes()
+}
+
+var NATIVE_INVOKE_NAME = "Ontology.Native.Invoke"
+
+//buildNeoVMParamInter build neovm invoke param code
+func BuildNeoVMParam(builder *script.Script, smartContractParams []interface{}) error {
+	//VM load params in reverse order
+	for i := len(smartContractParams) - 1; i >= 0; i-- {
+		switch v := smartContractParams[i].(type) {
+		case bool:
+			builder.EmitPushBool(v)
+		case byte:
+			builder.EmitPushInteger(big.NewInt(int64(v)))
+		case int:
+			builder.EmitPushInteger(big.NewInt(int64(v)))
+		case uint:
+			builder.EmitPushInteger(big.NewInt(int64(v)))
+		case int32:
+			builder.EmitPushInteger(big.NewInt(int64(v)))
+		case uint32:
+			builder.EmitPushInteger(big.NewInt(int64(v)))
+		case int64:
+			builder.EmitPushInteger(big.NewInt(int64(v)))
+		case ont.Fixed64:
+			builder.EmitPushInteger(big.NewInt(int64(v.GetData())))
+		case uint64:
+			val := big.NewInt(0)
+			builder.EmitPushInteger(val.SetUint64(uint64(v)))
+		case string:
+			builder.EmitPushBytes([]byte(v))
+		case *big.Int:
+			builder.EmitPushInteger(v)
+		case []byte:
+			builder.EmitPushBytes(v)
+		case ont.Address:
+			builder.EmitPushBytes(v[:])
+		case ont.Uint256:
+			builder.EmitPushBytes(v.ToArray())
+		case []interface{}:
+			err := BuildNeoVMParam(builder, v)
+			if err != nil {
+				return err
+			}
+			builder.EmitPushInteger(big.NewInt(int64(len(v))))
+			builder.Emit(script.PACK, nil)
+		default:
+			object := reflect.ValueOf(v)
+			kind := object.Kind().String()
+			if kind == "ptr" {
+				object = object.Elem()
+				kind = object.Kind().String()
+			}
+			switch kind {
+			case "slice":
+				ps := make([]interface{}, 0)
+				for i := 0; i < object.Len(); i++ {
+					ps = append(ps, object.Index(i).Interface())
+				}
+				err := BuildNeoVMParam(builder, []interface{}{ps})
+				if err != nil {
+					return err
+				}
+			case "struct":
+				builder.EmitPushInteger(big.NewInt(0))
+				builder.Emit(script.NEWSTRUCT, nil)
+				builder.Emit(script.TOALTSTACK, nil)
+				for i := 0; i < object.NumField(); i++ {
+					field := object.Field(i)
+					builder.Emit(script.DUPFROMALTSTACK, nil)
+					err := BuildNeoVMParam(builder, []interface{}{field.Interface()})
+					if err != nil {
+						return err
+					}
+					builder.Emit(script.APPEND, nil)
+				}
+				builder.Emit(script.FROMALTSTACK, nil)
+			default:
+				return fmt.Errorf("unsupported param:%s", v)
+			}
+		}
+	}
+	return nil
 }

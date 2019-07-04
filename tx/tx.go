@@ -38,6 +38,7 @@ type OntTxRequest struct {
 	GasPrice  uint64
 	GasLimits uint64
 	Value     uint64
+	Script    []byte
 }
 
 // Property .

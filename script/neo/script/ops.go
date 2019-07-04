@@ -108,8 +108,19 @@ const (
 	SETITEM                = 0xC4
 	NEWARRAY               = 0xC5 //用作引用類型
 	NEWSTRUCT              = 0xC6 //用作值類型
-	THROW                  = 0xF0
-	THROWIFNOT             = 0xF1
+
+	//ont array
+	NEWMAP          OpCode = 0xC7
+	APPEND          OpCode = 0xC8
+	REVERSE         OpCode = 0xC9
+	REMOVE          OpCode = 0xCA
+	HASKEY          OpCode = 0xCB
+	KEYS            OpCode = 0xCC
+	VALUES          OpCode = 0xCD
+
+	//Exception
+	THROW      = 0xF0
+	THROWIFNOT = 0xF1
 )
 
 var op2Strings = map[OpCode]string{

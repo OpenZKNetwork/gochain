@@ -4,12 +4,17 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math/big"
+	"reflect"
 
 	"github.com/dynamicgo/slf4go"
+	"github.com/dynamicgo/xerrors"
+	"github.com/openzknetwork/gochain/rpc/ont"
 	"golang.org/x/crypto/ripemd160"
 )
 
@@ -289,4 +294,174 @@ func (script *Script) JSON() string {
 	jsondata, _ := json.Marshal(ops)
 
 	return string(jsondata)
+}
+
+const ADDR_LEN = 20
+
+type Address [ADDR_LEN]byte
+
+var ADDRESS_EMPTY = Address{}
+
+func AddressFromHexString(s string) (Address, error) {
+	hx, err := hex.DecodeString(s)
+	if err != nil {
+		return ADDRESS_EMPTY, err
+	}
+	l := len(hx)
+	x := make([]byte, 0)
+	for i := l - 1; i >= 0; i-- {
+		x = append(x, hx[i])
+	}
+
+	if len(x) != ADDR_LEN {
+		return ADDRESS_EMPTY, errors.New("[Common]: AddressParseFromBytes err, len != 20")
+	}
+
+	var addr Address
+	copy(addr[:], x)
+	return addr, nil
+}
+
+func (script *Script) NewScript(contractAddress, from, to string, version byte, method string, amount uint64) ([]byte, error) {
+	contractAddr, err := AddressFromHexString(contractAddress)
+	if err != nil {
+		return nil, xerrors.Wrapf(err, "parse contract address error")
+	}
+	fromAddr, err := AddressFromHexString(from)
+	if err != nil {
+		return nil, xerrors.Wrapf(err, "parse from address error")
+	}
+	toAddr, err := AddressFromHexString(to)
+	if err != nil {
+		return nil, xerrors.Wrapf(err, "parse to address error")
+	}
+	type State struct {
+		From  Address
+		To    Address
+		Value uint64
+	}
+	state := &State{
+		From:  fromAddr,
+		To:    toAddr,
+		Value: amount,
+	}
+	params := []interface{}{[]*State{state}}
+	if params == nil {
+		params = make([]interface{}, 0, 1)
+	}
+	if len(params) == 0 {
+		params = append(params, "")
+	}
+
+	err = script.BuildNeoVMParam(params)
+	if err != nil {
+		return nil, err
+	}
+	script.EmitPushBytes([]byte(method))
+	script.EmitPushBytes(contractAddr[:])
+	script.EmitPushInteger(new(big.Int).SetInt64(int64(version)))
+	script.Emit(SYSCALL, nil)
+	script.EmitPushBytes([]byte(NATIVE_INVOKE_NAME))
+
+	return script.Bytes()
+}
+
+var NATIVE_INVOKE_NAME = "Ontology.Native.Invoke"
+
+const (
+	UINT16_SIZE  = 2
+	UINT32_SIZE  = 4
+	UINT64_SIZE  = 8
+	UINT256_SIZE = 32
+)
+
+type Uint256 [UINT256_SIZE]byte
+
+func (u *Uint256) ToArray() []byte {
+	x := make([]byte, UINT256_SIZE)
+	for i := 0; i < 32; i++ {
+		x[i] = byte(u[i])
+	}
+
+	return x
+}
+
+//buildNeoVMParamInter build neovm invoke param code
+func (script *Script) BuildNeoVMParam(smartContractParams []interface{}) error {
+	//VM load params in reverse order
+	for i := len(smartContractParams) - 1; i >= 0; i-- {
+		switch v := smartContractParams[i].(type) {
+		case bool:
+			script.EmitPushBool(v)
+		case byte:
+			script.EmitPushInteger(big.NewInt(int64(v)))
+		case int:
+			script.EmitPushInteger(big.NewInt(int64(v)))
+		case uint:
+			script.EmitPushInteger(big.NewInt(int64(v)))
+		case int32:
+			script.EmitPushInteger(big.NewInt(int64(v)))
+		case uint32:
+			script.EmitPushInteger(big.NewInt(int64(v)))
+		case int64:
+			script.EmitPushInteger(big.NewInt(int64(v)))
+		case ont.Fixed64:
+			script.EmitPushInteger(big.NewInt(int64(v.GetData())))
+		case uint64:
+			val := big.NewInt(0)
+			script.EmitPushInteger(val.SetUint64(uint64(v)))
+		case string:
+			script.EmitPushBytes([]byte(v))
+		case *big.Int:
+			script.EmitPushInteger(v)
+		case []byte:
+			script.EmitPushBytes(v)
+		case Address:
+			script.EmitPushBytes(v[:])
+		case Uint256:
+			script.EmitPushBytes(v.ToArray())
+		case []interface{}:
+			err := script.BuildNeoVMParam(v)
+			if err != nil {
+				return err
+			}
+			script.EmitPushInteger(big.NewInt(int64(len(v))))
+			script.Emit(PACK, nil)
+		default:
+			object := reflect.ValueOf(v)
+			kind := object.Kind().String()
+			if kind == "ptr" {
+				object = object.Elem()
+				kind = object.Kind().String()
+			}
+			switch kind {
+			case "slice":
+				ps := make([]interface{}, 0)
+				for i := 0; i < object.Len(); i++ {
+					ps = append(ps, object.Index(i).Interface())
+				}
+				err := script.BuildNeoVMParam([]interface{}{ps})
+				if err != nil {
+					return err
+				}
+			case "struct":
+				script.EmitPushInteger(big.NewInt(0))
+				script.Emit(NEWSTRUCT, nil)
+				script.Emit(TOALTSTACK, nil)
+				for i := 0; i < object.NumField(); i++ {
+					field := object.Field(i)
+					script.Emit(DUPFROMALTSTACK, nil)
+					err := script.BuildNeoVMParam([]interface{}{field.Interface()})
+					if err != nil {
+						return err
+					}
+					script.Emit(APPEND, nil)
+				}
+				script.Emit(FROMALTSTACK, nil)
+			default:
+				return fmt.Errorf("unsupported param:%s", v)
+			}
+		}
+	}
+	return nil
 }
