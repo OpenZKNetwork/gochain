@@ -36,11 +36,6 @@ func (provider *txProvider) RawTransaction(key key.Key, request interface{}, pro
 		ontTxRequest.GasLimits = gasLimits
 	}
 
-	// to, err := ont.AddressFromBase58(ontTxRequest.To)
-	// if err != nil {
-	// 	return nil, "", xerrors.Wrapf(err, "parse to address error")
-	// }
-
 	return Raw(ontTxRequest.GasPrice, ontTxRequest.GasLimits, key, ontTxRequest.Value, ontTxRequest.Script)
 }
 
@@ -67,25 +62,6 @@ func Raw(gasPrice, gasLimit uint64, key key.Key, amount uint64, script []byte) (
 		SigScheme:  ont.SHA3_256withECDSA,
 	}
 
-	// state := &ont.State{
-	// 	From:  from,
-	// 	To:    to,
-	// 	Value: amount,
-	// }
-	// params := []interface{}{[]*ont.State{state}}
-	// if params == nil {
-	// 	params = make([]interface{}, 0, 1)
-	// }
-	// if len(params) == 0 {
-	// 	params = append(params, "")
-	// }
-	// invokeCode, err := ont.BuildNativeInvokeCode(ont.ONT_CONTRACT_ADDRESS, ont.ONT_CONTRACT_VERSION, ont.TRANSFER_NAME, params)
-	// if err != nil {
-	// 	return nil, "", fmt.Errorf("BuildNativeInvokeCode error:%s", err)
-	// }
-	// invokePayload := &ont.InvokeCode{
-	// 	Code: invokeCode,
-	// }
 	invokePayload := &ont.InvokeCode{
 		Code: script,
 	}

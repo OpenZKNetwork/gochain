@@ -25,6 +25,7 @@ import (
 	"crypto/cipher"
 	"crypto/ecdsa"
 	"crypto/elliptic"
+	rand2 "crypto/rand"
 	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/hex"
@@ -34,7 +35,6 @@ import (
 	"io"
 	"math/big"
 	"math/rand"
-	rand2 "crypto/rand"
 	"os"
 	"reflect"
 	"sort"
@@ -68,6 +68,18 @@ func ToArrayReverse(arr []byte) []byte {
 	x := make([]byte, 0)
 	for i := l - 1; i >= 0; i-- {
 		x = append(x, arr[i])
+	}
+	return x
+}
+
+func AddressByteArrayReverse(arr []byte) []byte {
+	l := len(arr)
+	x := make([]byte, 0)
+	for i := l - 1; i >= 0; i-- {
+		if i%2 != 0 {
+			continue
+		}
+		x = append(x, arr[i], arr[i+1])
 	}
 	return x
 }
@@ -1346,7 +1358,7 @@ func ParseNativeTxPayload(raw []byte) (map[string]interface{}, error) {
 	if !ok {
 		return nil, fmt.Errorf("error payload")
 	}
-	
+
 	code := invokeCode.Code
 	return ParsePayload(code)
 }
@@ -1414,7 +1426,7 @@ func ParsePayload(code []byte) (map[string]interface{}, error) {
 			if err != nil {
 				return nil, err
 			}
-			fmt.Printf("res %+v \n",res)
+			fmt.Printf("res %+v \n", res)
 			source.BackUp(1)
 			//method name
 			_, _, irregular, eof := source.NextVarBytes()

@@ -10,6 +10,9 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/ontio/ontology-go-sdk/oep4"
+	"github.com/ontio/ontology/account"
+
 	"github.com/openzknetwork/gochain/script/neo/script"
 
 	"github.com/openzknetwork/gochain/tx"
@@ -23,8 +26,10 @@ import (
 	"github.com/openzknetwork/gochain/rpc/ont"
 
 	"github.com/ontio/ontology-crypto/ec"
+	"github.com/ontio/ontology-crypto/keypair"
 	"github.com/ontio/ontology-crypto/signature"
 	sdk "github.com/ontio/ontology-go-sdk"
+	"github.com/ontio/ontology/cmd/utils"
 	"github.com/ontio/ontology/common"
 )
 
@@ -56,7 +61,7 @@ func TestNewAccount(t *testing.T) {
 }
 
 func TestOpenWallet(t *testing.T) {
-	// password := []byte("123456")
+	password := []byte("123456")
 	// wd, _ := os.Getwd()
 	// walletFile := filepath.FromSlash(path.Join(wd, "wallet1.dat"))
 	wallet, err := sdk.OpenWallet("./wallet.dat")
@@ -65,6 +70,12 @@ func TestOpenWallet(t *testing.T) {
 	} else {
 		fmt.Println(wallet.GetAccountCount())
 	}
+	a2, err := wallet.GetAccountByIndex(1, password)
+	if err != nil {
+		fmt.Println("")
+		return
+	}
+	println(hex.EncodeToString(keypair.SerializePrivateKey(a2.PrivateKey)))
 }
 
 func TestContractAddress(t *testing.T) {
@@ -154,6 +165,11 @@ func TestPri(t *testing.T) {
 	b, _ := ont.AddressFromBase58("AFmseVrdL9f9oyCzZefL9tG6UbvhPbdYzM")
 	h2b, _ := ont.HexToBytes("AFmseVrdL9f9oyCzZefL9tG6UbvhPbdYzM")
 	fmt.Println(ss.ToBase58(), b.ToHexString(), ont.ToHexString(h2b), ss.ToHexString())
+}
+
+func TestParseHash(t *testing.T) {
+	add, _ := ont.AddressFromHexString(string(ont.AddressByteArrayReverse([]byte("0239dcf9b4a46f15c5f23f20d52fac916a0bac0d"))))
+	println(add.ToBase58())
 }
 
 func TestSdkTransaction(t *testing.T) {
@@ -408,6 +424,7 @@ func TestScript(t *testing.T) {
 	const (
 		ONT_CONTRACT_ADDRESS = "0100000000000000000000000000000000000000"
 		ONG_CONTRACT_ADDRESS = "0200000000000000000000000000000000000000"
+		OWN_CONTRACT_ADDRESS = "c43ce1a45253cb68617c8b5d2d504084e2e9baac"
 	)
 	client := ont.New("http://polaris1.ont.io:20336")
 
@@ -428,6 +445,59 @@ func TestScript(t *testing.T) {
 		GasLimits: 500,
 		// Value:     1,
 		Script: st,
+	}, nil)
+
+	if err != nil {
+		fmt.Printf("RawTransaction error %s \n", err.Error())
+		return
+	}
+	res, err := client.SendRawTransaction(data)
+	if err != nil {
+		fmt.Printf("SendRawTransaction error %s \n", err.Error())
+		return
+	}
+
+	fmt.Printf("res %s \n", res)
+}
+
+func TestOwnContract(t *testing.T) {
+	k, err := key.New("ont")
+	if err != nil {
+		fmt.Printf("key.New error %s \n", err.Error())
+		return
+	}
+
+	err = key.Decrypt("wif", k, nil, bytes.NewBufferString("L1MNCbtnfUBvSebyrhjE3QmmvUaUXLziyWEjkVGHJhCusMXYAyKB"))
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+	// println(hex.EncodeToString(k.PriKey()))
+	// return
+	const (
+		ONT_CONTRACT_ADDRESS = "0100000000000000000000000000000000000000"
+		ONG_CONTRACT_ADDRESS = "0200000000000000000000000000000000000000"
+		OWN_CONTRACT_ADDRESS = "c43ce1a45253cb68617c8b5d2d504084e2e9baac"
+	)
+	client := ont.New("http://127.0.0.1:20336")
+
+	fromAddess, _ := ont.AddressFromBase58(k.Address())
+	from := fromAddess.ToHexString()
+	toAddess, _ := ont.AddressFromBase58("AHHXD39GRmhcjqaobEVQdadzqo6BbWfJQ2")
+	to := toAddess.ToHexString()
+	fmt.Printf("from hex %s   to hex %s \n", from, to)
+	st, err := script.New(k.Address()).NewScript(OWN_CONTRACT_ADDRESS, from, to, ont.ONT_CONTRACT_VERSION, ont.TRANSFER_NAME, 1)
+	// st, err := NewScript(OWN_CONTRACT_ADDRESS, from, to, ont.ONT_CONTRACT_VERSION, ont.TRANSFER_NAME, 1)
+
+	if err != nil {
+		fmt.Printf("NewScript error %s \n", err.Error())
+		return
+	}
+
+	data, _, err := tx.RawTransaction("ont", k, &tx.OntTxRequest{
+		GasPrice:  2000,
+		GasLimits: 500,
+		Script:    st,
 	}, nil)
 
 	if err != nil {
@@ -469,10 +539,15 @@ func NewScript(contractAddress, from, to string, version byte, method string, am
 	if len(params) == 0 {
 		params = append(params, "")
 	}
-
+	if contractAddress != ont.ONT_CONTRACT_ADDRESS.ToHexString() && contractAddress != ont.ONG_CONTRACT_ADDRESS.ToHexString() {
+		params = []interface{}{"transfer", []interface{}{fromAddr, toAddr, big.NewInt(int64(amount))}}
+	}
 	err = BuildNeoVMParam(builder, params)
 	if err != nil {
 		return nil, err
+	}
+	if contractAddress != ont.ONT_CONTRACT_ADDRESS.ToHexString() && contractAddress != ont.ONG_CONTRACT_ADDRESS.ToHexString() {
+		return BuildNeoVMInvokeCode(builder, contractAddr)
 	}
 	builder.EmitPushBytes([]byte(method))
 	builder.EmitPushBytes(contractAddr[:])
@@ -481,6 +556,16 @@ func NewScript(contractAddress, from, to string, version byte, method string, am
 	builder.EmitPushBytes([]byte(NATIVE_INVOKE_NAME))
 
 	return builder.Bytes()
+}
+
+func BuildNeoVMInvokeCode(builder *script.Script, smartContractAddress ont.Address) ([]byte, error) {
+	b, err := builder.Bytes()
+	if err != nil {
+		return nil, err
+	}
+	args := append(b, script.APPCALL)
+	args = append(args, smartContractAddress[:]...)
+	return args, nil
 }
 
 var NATIVE_INVOKE_NAME = "Ontology.Native.Invoke"
@@ -563,4 +648,114 @@ func BuildNeoVMParam(builder *script.Script, smartContractParams []interface{}) 
 		}
 	}
 	return nil
+}
+
+func TestHex(t *testing.T) {
+	f, _ := hex.DecodeString("7472616e73666572")
+	println(string(f))
+
+	a, _ := ont.AddressFromHexString("0200000000000000000000000000000000000000")
+	println(a.ToBase58())
+	println()
+
+	println(len("a94f00eb9e6a13890992b4db768d3a8acd4b6f0f"))
+	add, _ := ont.AddressFromHexString(string(ont.AddressByteArrayReverse([]byte("c43ce1a45253cb68617c8b5d2d504084e2e9baac"))))
+	println(add.ToBase58())
+
+	n, err := strconv.ParseUint("0010a5d4e800", 16, 64)
+	if err != nil {
+		panic(err)
+	}
+
+	println(n)
+
+	fn, _ := fixed.FromHex("0010a5d4e800", 8)
+	ff, _ := fn.Float().Float64()
+	fmt.Printf("%0.7f \n", ff)
+
+}
+
+func TestContract(t *testing.T) {
+	testPasswd := []byte("123456")
+	testOntSdk := sdk.NewOntologySdk()
+	testOntSdk.NewRpcClient().SetAddress("http://127.0.0.1:20336")
+	var wallet *sdk.Wallet
+	var err error
+	if !FileExisted("./wallet.dat") {
+		wallet, err = testOntSdk.CreateWallet("./wallet.dat")
+		if err != nil {
+			fmt.Println("[CreateWallet] error:", err)
+			return
+		}
+	} else {
+		wallet, err = testOntSdk.OpenWallet("./wallet.dat")
+		if err != nil {
+			fmt.Println("[CreateWallet] error:", err)
+			return
+		}
+	}
+
+	a1, err := wallet.GetAccountByIndex(1, testPasswd)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	a2, err := wallet.GetAccountByIndex(2, testPasswd)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	contract, err := common.AddressFromHexString("c43ce1a45253cb68617c8b5d2d504084e2e9baac")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	oep := oep4.NewOep4(contract, testOntSdk)
+	name, err := oep.Name()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	println(name)
+
+	total, err := oep.TotalSupply()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	println(total.Int64())
+
+	balance, err := oep.BalanceOf(a2.Address)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	println(balance.Int64())
+
+	transferResult, err := oep.Transfer(a1, a2.Address, big.NewInt(100), 500, 20000)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	println(transferResult.ToHexString())
+	return
+
+	sender := &account.Account{
+		PrivateKey: a1.PrivateKey,
+		PublicKey:  a1.PublicKey,
+		Address:    a1.Address,
+		SigScheme:  a1.SigScheme,
+	}
+	params := []interface{}{"transfer", []interface{}{a1.Address, a2, 1}}
+	rs, err := utils.InvokeNeoVMContract(uint64(500), uint64(20000), sender, contract, params)
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	println(rs)
 }
