@@ -362,8 +362,29 @@ func (script *Script) NewScript(contractAddress, from, to string, version byte, 
 
 	if contractAddress != ont.ONT_CONTRACT_ADDRESS.ToHexString() && contractAddress != ont.ONG_CONTRACT_ADDRESS.ToHexString() {
 		params = []interface{}{"transfer", []interface{}{fromAddr, toAddr, big.NewInt(int64(amount))}}
+		return script.NewNeoVMScript(contractAddress, params)
 	}
 	return script.BuildInvokeCode(contractAddr, method, params)
+}
+
+// NewNeoVMScript .
+func (script *Script) NewNeoVMScript(contractAddress string, params []interface{}) ([]byte, error) {
+	contractAddr, err := AddressFromHexString(contractAddress)
+	if err != nil {
+		return nil, xerrors.Wrapf(err, "parse contract address error")
+	}
+	if params == nil {
+		params = make([]interface{}, 0, 1)
+	}
+	if len(params) == 0 {
+		params = append(params, "")
+	}
+
+	err = script.BuildNeoVMParam(params)
+	if err != nil {
+		return nil, err
+	}
+	return BuildNeoVMInvokeCode(script, contractAddr)
 }
 
 func (script *Script) BuildInvokeCode(contractAddress Address, method string, params []interface{}) ([]byte, error) {
@@ -378,10 +399,6 @@ func (script *Script) BuildInvokeCode(contractAddress Address, method string, pa
 	err := script.BuildNeoVMParam(params)
 	if err != nil {
 		return nil, err
-	}
-	address := contractAddress.ToHexString()
-	if address != ont.ONT_CONTRACT_ADDRESS.ToHexString() && address != ont.ONG_CONTRACT_ADDRESS.ToHexString() {
-		return BuildNeoVMInvokeCode(script, contractAddress)
 	}
 
 	script.EmitPushBytes([]byte(method))
