@@ -759,3 +759,12 @@ func TestContract(t *testing.T) {
 	}
 	println(rs)
 }
+
+func TestAddress(t *testing.T) {
+	a, err := ont.AddressFromHexString("a9749d10b4f250444b53c9221e668218045cff86")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	println(a.ToBase58())
+}

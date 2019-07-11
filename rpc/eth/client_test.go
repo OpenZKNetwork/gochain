@@ -1,6 +1,7 @@
 package eth
 
 import (
+	"encoding/hex"
 	"fmt"
 	"testing"
 
@@ -19,4 +20,14 @@ func TestGasPrice(t *testing.T) {
 	assert.NoError(t, err)
 
 	println(fmt.Sprintf("%d", price))
+
+	decimals, err := client.DecimalsOfAsset("0x9f8f72aa9304c8b593d555f12ef6589cc3a579a2")
+	assert.NoError(t, err)
+	println(fmt.Sprintf("%d", decimals))
+}
+
+func TestHex(t *testing.T) {
+	b, err := hex.DecodeString("7472616e73666572")
+	assert.NoError(t, err)
+	println(string(b))
 }

@@ -216,22 +216,6 @@ func (client *clientImpl) Transfer(gasPrice, gasLimit uint64, from *Account, to 
 	return res.ToHexString(), nil
 }
 func (client *clientImpl) SendRawTransaction(tx []byte) (string, error) {
-	// tx, err := client.NewTransferTransaction(gasPrice, gasLimit, from.Address, to, amount)
-	// if err != nil {
-	// 	return UINT256_EMPTY, err
-	// }
-	// err = client.SignToTransaction(tx, from)
-	// if err != nil {
-	// 	return UINT256_EMPTY, err
-	// }
-	// mutTx, err := tx.IntoImmutable()
-	// if err != nil {
-	// 	return UINT256_EMPTY, err
-	// }
-	// rawparams, err := client.GetRawTransactionParams(mutTx, false)
-	// if err != nil {
-	// 	return UINT256_EMPTY, err
-	// }
 	txData := hex.EncodeToString(tx)
 	rawParams := []interface{}{txData}
 	data, err := client.sendRequest(sendTransaction, rawParams)

@@ -1,5 +1,11 @@
 package test
 
+import (
+	"testing"
+
+	"github.com/openzknetwork/gochain/script/eth/erc20"
+)
+
 // import (
 // 	"bytes"
 // 	"io/ioutil"
@@ -64,3 +70,8 @@ package test
 
 // 	println(txid)
 // }
+
+func TestAbi(t *testing.T) {
+	s := erc20.GetDecimals()
+	println(s)
+}

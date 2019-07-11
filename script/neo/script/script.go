@@ -300,6 +300,19 @@ const ADDR_LEN = 20
 
 type Address [ADDR_LEN]byte
 
+func (f *Address) ToHexString() string {
+	return fmt.Sprintf("%x", ToArrayReverse(f[:]))
+}
+
+func ToArrayReverse(arr []byte) []byte {
+	l := len(arr)
+	x := make([]byte, 0)
+	for i := l - 1; i >= 0; i-- {
+		x = append(x, arr[i])
+	}
+	return x
+}
+
 var ADDRESS_EMPTY = Address{}
 
 func AddressFromHexString(s string) (Address, error) {
@@ -346,29 +359,34 @@ func (script *Script) NewScript(contractAddress, from, to string, version byte, 
 		Value: amount,
 	}
 	params := []interface{}{[]*State{state}}
+
+	if contractAddress != ont.ONT_CONTRACT_ADDRESS.ToHexString() && contractAddress != ont.ONG_CONTRACT_ADDRESS.ToHexString() {
+		params = []interface{}{"transfer", []interface{}{fromAddr, toAddr, big.NewInt(int64(amount))}}
+	}
+	return script.BuildInvokeCode(contractAddr, method, params)
+}
+
+func (script *Script) BuildInvokeCode(contractAddress Address, method string, params []interface{}) ([]byte, error) {
+
 	if params == nil {
 		params = make([]interface{}, 0, 1)
 	}
 	if len(params) == 0 {
 		params = append(params, "")
 	}
-	
-	if contractAddress != ont.ONT_CONTRACT_ADDRESS.ToHexString() && contractAddress != ont.ONG_CONTRACT_ADDRESS.ToHexString() {
-		params = []interface{}{"transfer", []interface{}{fromAddr, toAddr, big.NewInt(int64(amount))}}
-	}
 
-	err = script.BuildNeoVMParam(params)
+	err := script.BuildNeoVMParam(params)
 	if err != nil {
 		return nil, err
 	}
-
-	if contractAddress != ont.ONT_CONTRACT_ADDRESS.ToHexString() && contractAddress != ont.ONG_CONTRACT_ADDRESS.ToHexString() {
-		return BuildNeoVMInvokeCode(script, contractAddr)
+	address := contractAddress.ToHexString()
+	if address != ont.ONT_CONTRACT_ADDRESS.ToHexString() && address != ont.ONG_CONTRACT_ADDRESS.ToHexString() {
+		return BuildNeoVMInvokeCode(script, contractAddress)
 	}
 
 	script.EmitPushBytes([]byte(method))
-	script.EmitPushBytes(contractAddr[:])
-	script.EmitPushInteger(new(big.Int).SetInt64(int64(version)))
+	script.EmitPushBytes(contractAddress[:])
+	script.EmitPushInteger(new(big.Int).SetInt64(int64(byte(0))))
 	script.Emit(SYSCALL, nil)
 	script.EmitPushBytes([]byte(NATIVE_INVOKE_NAME))
 
