@@ -97,11 +97,11 @@ func (client *clientImpl) GetBalance(address string) (uint64, error) {
 }
 
 func (client *clientImpl) BalanceOfAsset(address string, asset string) (uint64, error) {
-	addr, err := AddressFromHexString(address)
+	addr, err := AddressFromBase58(address)
 	if err != nil {
 		return 0, err
 	}
-	invokeCode, err := script.New(address).NewNeoVMScript(address, []interface{}{"balanceOf", []interface{}{addr}})
+	invokeCode, err := script.New(address).NewNeoVMScript(asset, []interface{}{"balanceOf", []interface{}{addr}})
 	invokePayload := &InvokeCode{
 		Code: invokeCode,
 	}
