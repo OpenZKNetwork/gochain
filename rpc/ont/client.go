@@ -12,18 +12,20 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/openzknetwork/gochain/script/neo/script"
+
 	"github.com/dynamicgo/slf4go"
 )
 
 // Client eth web3 api client
 type Client interface {
 	// Nonce(address string) (uint64, error)
-	GetBalance(address Address) (uint64, error)
+	GetBalance(address string) (uint64, error)
 	BestBlockNumber() (uint32, error)
 	GetBlockByNumber(number uint32) (val *Block, err error)
 	GetTransactionByHash(tx string) (val *Transaction, err error)
 	SendRawTransaction(tx []byte) (string, error)
-	// BalanceOfAsset(address string, asset string, decimals int) (*fixed.Number, error)
+	BalanceOfAsset(address string, asset string) (uint64, error)
 	// DecimalsOfAsset(asset string) (int, error)
 	GetTransactionReceipt(tx string) (val *SmartContactEvent, err error)
 	SuggestGasPrice() (uint32, error)
@@ -73,15 +75,64 @@ func (client *clientImpl) Symbol() (string, error) {
 	return preResult.Result.ToString()
 }
 
-func (client *clientImpl) GetBalance(address Address) (uint64, error) {
+func (client *clientImpl) GetBalance(address string) (uint64, error) {
+	addr, err := AddressFromBase58(address)
+	if err != nil {
+		return 0, err
+	}
 	preResult, err := client.PreExecInvokeNativeContract(
 		ONT_CONTRACT_ADDRESS,
 		ONT_CONTRACT_VERSION,
 		BALANCEOF_NAME,
-		[]interface{}{address[:]},
+		[]interface{}{addr[:]},
 	)
 	if err != nil {
 		return 0, err
+	}
+	balance, err := preResult.Result.ToInteger()
+	if err != nil {
+		return 0, err
+	}
+	return balance.Uint64(), nil
+}
+
+func (client *clientImpl) BalanceOfAsset(address string, asset string) (uint64, error) {
+	addr, err := AddressFromHexString(address)
+	if err != nil {
+		return 0, err
+	}
+	invokeCode, err := script.New(address).NewNeoVMScript(address, []interface{}{"balanceOf", []interface{}{addr}})
+	invokePayload := &InvokeCode{
+		Code: invokeCode,
+	}
+	mutTx := &MutableTransaction{
+		GasPrice: 0,
+		GasLimit: 0,
+		TxType:   Invoke,
+		Nonce:    rand.Uint32(),
+		Payload:  invokePayload,
+		Sigs:     make([]Sig, 0, 0),
+	}
+	tx, err := mutTx.IntoImmutable()
+	if err != nil {
+		return 0, err
+	}
+
+	var buffer bytes.Buffer
+	err = tx.Serialize(&buffer)
+	if err != nil {
+		return 0, fmt.Errorf("serialize error:%s", err)
+	}
+	txData := hex.EncodeToString(buffer.Bytes())
+	params := []interface{}{txData}
+	data, err := client.sendRequest(sendTransaction, params)
+	if err != nil {
+		return 0, err
+	}
+	preResult := &PreExecResult{}
+	err = json.Unmarshal(data, &preResult)
+	if err != nil {
+		return 0, fmt.Errorf("json.Unmarshal PreExecResult:%s error:%s", data, err)
 	}
 	balance, err := preResult.Result.ToInteger()
 	if err != nil {

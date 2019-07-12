@@ -14,7 +14,9 @@ import (
 
 	"github.com/dynamicgo/slf4go"
 	"github.com/dynamicgo/xerrors"
-	"github.com/openzknetwork/gochain/rpc/ont"
+
+	// "github.com/openzknetwork/gochain/rpc/ont"
+
 	"golang.org/x/crypto/ripemd160"
 )
 
@@ -25,6 +27,15 @@ type Script struct {
 	Name  string
 	Error error
 }
+
+var (
+	ONT_CONTRACT_ADDRESS, _           = AddressFromHexString("0100000000000000000000000000000000000000")
+	ONG_CONTRACT_ADDRESS, _           = AddressFromHexString("0200000000000000000000000000000000000000")
+	ONT_ID_CONTRACT_ADDRESS, _        = AddressFromHexString("0300000000000000000000000000000000000000")
+	GLOABL_PARAMS_CONTRACT_ADDRESS, _ = AddressFromHexString("0400000000000000000000000000000000000000")
+	AUTH_CONTRACT_ADDRESS, _          = AddressFromHexString("0600000000000000000000000000000000000000")
+	GOVERNANCE_CONTRACT_ADDRESS, _    = AddressFromHexString("0700000000000000000000000000000000000000")
+)
 
 // New create new script with display name
 func New(name string) *Script {
@@ -360,7 +371,7 @@ func (script *Script) NewScript(contractAddress, from, to string, version byte, 
 	}
 	params := []interface{}{[]*State{state}}
 
-	if contractAddress != ont.ONT_CONTRACT_ADDRESS.ToHexString() && contractAddress != ont.ONG_CONTRACT_ADDRESS.ToHexString() {
+	if contractAddress != ONT_CONTRACT_ADDRESS.ToHexString() && contractAddress != ONG_CONTRACT_ADDRESS.ToHexString() {
 		params = []interface{}{"transfer", []interface{}{fromAddr, toAddr, big.NewInt(int64(amount))}}
 		return script.NewNeoVMScript(contractAddress, params)
 	}
@@ -458,7 +469,7 @@ func (script *Script) BuildNeoVMParam(smartContractParams []interface{}) error {
 			script.EmitPushInteger(big.NewInt(int64(v)))
 		case int64:
 			script.EmitPushInteger(big.NewInt(int64(v)))
-		case ont.Fixed64:
+		case Fixed64:
 			script.EmitPushInteger(big.NewInt(int64(v.GetData())))
 		case uint64:
 			val := big.NewInt(0)
@@ -517,4 +528,10 @@ func (script *Script) BuildNeoVMParam(smartContractParams []interface{}) error {
 		}
 	}
 	return nil
+}
+
+type Fixed64 int64
+
+func (f Fixed64) GetData() int64 {
+	return int64(f)
 }

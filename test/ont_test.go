@@ -735,7 +735,7 @@ func TestContract(t *testing.T) {
 	}
 
 	println(balance.Int64())
-
+	return 
 	transferResult, err := oep.Transfer(a1, a2.Address, big.NewInt(100), 500, 20000)
 	if err != nil {
 		fmt.Println(err)
