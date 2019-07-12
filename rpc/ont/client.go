@@ -20,7 +20,7 @@ import (
 // Client eth web3 api client
 type Client interface {
 	// Nonce(address string) (uint64, error)
-	GetBalance(address string) (uint64, error)
+	GetBalance(address string, asset string) (uint64, error)
 	BestBlockNumber() (uint32, error)
 	GetBlockByNumber(number uint32) (val *Block, err error)
 	GetTransactionByHash(tx string) (val *Transaction, err error)
@@ -75,13 +75,17 @@ func (client *clientImpl) Symbol() (string, error) {
 	return preResult.Result.ToString()
 }
 
-func (client *clientImpl) GetBalance(address string) (uint64, error) {
+func (client *clientImpl) GetBalance(address string, asset string) (uint64, error) {
 	addr, err := AddressFromBase58(address)
 	if err != nil {
 		return 0, err
 	}
+	assetAddress, err := AddressFromHexString(asset)
+	if err != nil {
+		return 0, err
+	}
 	preResult, err := client.PreExecInvokeNativeContract(
-		ONT_CONTRACT_ADDRESS,
+		assetAddress,
 		ONT_CONTRACT_VERSION,
 		BALANCEOF_NAME,
 		[]interface{}{addr[:]},
