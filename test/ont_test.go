@@ -480,7 +480,7 @@ func TestOwnContract(t *testing.T) {
 		OWN_CONTRACT_ADDRESS = "c43ce1a45253cb68617c8b5d2d504084e2e9baac"
 	)
 	client := ont.New("http://127.0.0.1:20336")
-
+	println(k.Address())
 	fromAddess, _ := ont.AddressFromBase58(k.Address())
 	from := fromAddess.ToHexString()
 	toAddess, _ := ont.AddressFromBase58("AHHXD39GRmhcjqaobEVQdadzqo6BbWfJQ2")

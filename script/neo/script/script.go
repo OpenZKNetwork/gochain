@@ -14,6 +14,7 @@ import (
 
 	"github.com/dynamicgo/slf4go"
 	"github.com/dynamicgo/xerrors"
+	base58 "github.com/itchyny/base58-go"
 
 	// "github.com/openzknetwork/gochain/rpc/ont"
 
@@ -315,6 +316,18 @@ func (f *Address) ToHexString() string {
 	return fmt.Sprintf("%x", ToArrayReverse(f[:]))
 }
 
+// ToBase58 returns base58 encoded address string
+func (f *Address) ToBase58() string {
+	data := append([]byte{23}, f[:]...)
+	temp := sha256.Sum256(data)
+	temps := sha256.Sum256(temp[:])
+	data = append(data, temps[0:4]...)
+
+	bi := new(big.Int).SetBytes(data).String()
+	encoded, _ := base58.BitcoinEncoding.Encode([]byte(bi))
+	return string(encoded)
+}
+
 func ToArrayReverse(arr []byte) []byte {
 	l := len(arr)
 	x := make([]byte, 0)
@@ -346,16 +359,52 @@ func AddressFromHexString(s string) (Address, error) {
 	return addr, nil
 }
 
+const MaxBase58AddrLen = 2048 // just to avoid dos
+// AddressFromBase58 returns Address from encoded base58 string
+func AddressFromBase58(encoded string) (Address, error) {
+	if encoded == "" || len(encoded) > MaxBase58AddrLen {
+		return ADDRESS_EMPTY, errors.New("invalid address")
+	}
+	decoded, err := base58.BitcoinEncoding.Decode([]byte(encoded))
+	if err != nil {
+		return ADDRESS_EMPTY, err
+	}
+
+	x, ok := new(big.Int).SetString(string(decoded), 10)
+	if !ok {
+		return ADDRESS_EMPTY, errors.New("invalid address")
+	}
+
+	buf := x.Bytes()
+	if len(buf) != 1+ADDR_LEN+4 || buf[0] != byte(23) {
+		return ADDRESS_EMPTY, errors.New("wrong encoded address")
+	}
+	f := buf[1:21]
+	if len(f) != ADDR_LEN {
+		return ADDRESS_EMPTY, errors.New("[Common]: AddressParseFromBytes err, len != 20")
+	}
+
+	var ph Address
+	copy(ph[:], f)
+	addr := ph.ToBase58()
+
+	if addr != encoded {
+		return ADDRESS_EMPTY, errors.New("[AddressFromBase58]: decode encoded verify failed.")
+	}
+
+	return ph, nil
+}
+
 func (script *Script) NewScript(contractAddress, from, to string, version byte, method string, amount uint64) ([]byte, error) {
 	contractAddr, err := AddressFromHexString(contractAddress)
 	if err != nil {
 		return nil, xerrors.Wrapf(err, "parse contract address error")
 	}
-	fromAddr, err := AddressFromHexString(from)
+	fromAddr, err := AddressFromBase58(from)
 	if err != nil {
 		return nil, xerrors.Wrapf(err, "parse from address error")
 	}
-	toAddr, err := AddressFromHexString(to)
+	toAddr, err := AddressFromBase58(to)
 	if err != nil {
 		return nil, xerrors.Wrapf(err, "parse to address error")
 	}
