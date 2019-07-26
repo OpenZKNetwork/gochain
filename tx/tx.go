@@ -41,6 +41,18 @@ type OntTxRequest struct {
 	Script    []byte
 }
 
+// BnbTxRequest .
+type BnbTxRequest struct {
+	To          string
+	GasPrice    uint64
+	GasLimits   uint64
+	Value       uint64
+	Script      []byte
+	ChainID     string
+	AccSequence int64
+	AccNumber   int64
+}
+
 // Property .
 type Property map[string]interface{}
 

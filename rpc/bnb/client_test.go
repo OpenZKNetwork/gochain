@@ -1,6 +1,7 @@
 package bnb
 
 import (
+	txbnb "github.com/openzknetwork/gochain/tx/provider/bnb"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -22,6 +23,7 @@ var (
 	key2 keys.KeyManager //tbnb1k7m2qlp0ruacpcggh0rj2t44eqfqquntn6k8ew
 )
 
+const privkey1 = "e0964451603e6e0e85a67d7e1fff26579e5f05108886b8ef8a940e5f3b861f6d"
 const privkey2 = "35c445a835eaefa4d6d11bfd8165d60459664abf5e440547f0ef9908c8695507"
 
 func init() {
@@ -41,7 +43,7 @@ func init() {
 
 	key2 = k
 
-	c = NewClient("testnet-dex.binance.org", "https://seed-pre-s3.binance.org")
+	c = New("testnet-dex.binance.org", "https://seed-pre-s3.binance.org", 0)
 }
 
 func TestKey(t *testing.T) {
@@ -129,7 +131,7 @@ func TestBlocks(t *testing.T) {
 	err = json.Unmarshal(block, res)
 	assert.Nil(t, err)
 	codec := types.NewCodec()
-	
+
 	for _, v := range res.Txs {
 		m := new(tx.StdTx)
 		codec.UnmarshalBinaryLengthPrefixed(v, m)
@@ -204,3 +206,4 @@ func TestParseTx(t *testing.T) {
 	}
 	println(string(bz))
 }
+
