@@ -15,9 +15,10 @@ type KeyManager interface {
 	Sign(StdSignMsg) ([]byte, error)
 	GetPrivKey() PrivKey
 	GetAddr() AccAddress
+	GetPublicKey() crypto.PubKey
 
 	// ExportAsMnemonic() (string, error)
-	// ExportAsPrivateKey() (string, error)
+	ExportAsPrivateKey() (string, error)
 	// ExportAsKeyStore(password string) (*EncryptedKeyJSON, error)
 }
 type Address = HexBytes
@@ -137,6 +138,14 @@ func init() {
 	RegisterCodec(Cdc)
 }
 
+func (m *keyManager) ExportAsPrivateKey() (string, error) {
+	secpPrivateKey, ok := m.privKey.(secp256k1.PrivKeySecp256k1)
+	if !ok {
+		return "", fmt.Errorf(" Only PrivKeySecp256k1 key is supported ")
+	}
+	return hex.EncodeToString(secpPrivateKey[:]), nil
+}
+
 func (m *keyManager) Sign(msg StdSignMsg) ([]byte, error) {
 	sig, err := m.makeSignature(msg)
 	if err != nil {
@@ -160,7 +169,9 @@ func (m *keyManager) GetPrivKey() PrivKey {
 func (m *keyManager) GetAddr() AccAddress {
 	return m.addr
 }
-
+func (m *keyManager) GetPublicKey() crypto.PubKey {
+	return m.privKey.PubKey()
+}
 func (m *keyManager) makeSignature(msg StdSignMsg) (sig StdSignature, err error) {
 	if err != nil {
 		return
@@ -191,6 +202,7 @@ func (m *keyManager) recoveryFromPrivateKey(privateKey string) error {
 	}
 
 	if len(priBytes) != 32 {
+
 		return fmt.Errorf("Len of Keybytes is not equal to 32 ")
 	}
 	var keyBytesArray [32]byte

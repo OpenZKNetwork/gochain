@@ -1,7 +1,6 @@
 package bnb
 
 import (
-	txbnb "github.com/openzknetwork/gochain/tx/provider/bnb"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -24,7 +23,7 @@ var (
 )
 
 const privkey1 = "e0964451603e6e0e85a67d7e1fff26579e5f05108886b8ef8a940e5f3b861f6d"
-const privkey2 = "35c445a835eaefa4d6d11bfd8165d60459664abf5e440547f0ef9908c8695507"
+const privkey2 = "9dde022641040e10f7d5be812990f6cab241c981ae83f4643858a4e35246d0af"
 
 func init() {
 	Network = TestNetwork
@@ -101,7 +100,8 @@ func TestTransfer(t *testing.T) {
 	assert.Nil(t, err)
 	k2, err := NewPrivateKeyManager(prikey2)
 	assert.Nil(t, err)
-
+	fmt.Printf("k2 address %+v \n",k2.GetAddr())
+	return 
 	res, err := c.Transfer(k1, []Transfer{Transfer{ToAddr: k2.GetAddr(), Coins: []Coin{Coin{Denom: "BNB", Amount: 500000000}}}})
 	assert.Nil(t, err)
 	fmt.Printf("%#v \n", res)
@@ -206,4 +206,3 @@ func TestParseTx(t *testing.T) {
 	}
 	println(string(bz))
 }
-

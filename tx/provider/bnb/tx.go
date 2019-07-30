@@ -2,11 +2,14 @@ package bnb
 
 import (
 	"encoding/hex"
+	"fmt"
 
-	"github.com/openzknetwork/gochain/rpc/bnb"
+	"github.com/binance-chain/go-sdk/types"
+	// "github.com/openzknetwork/gochain/rpc/bnb"
 
 	"github.com/dynamicgo/xerrors"
 
+	"github.com/openzknetwork/gochain/rpc/bnb"
 	"github.com/openzknetwork/gochain/tx"
 	"github.com/openzknetwork/key"
 )
@@ -26,7 +29,7 @@ func (provider *txProvider) Name() string {
 func (provider *txProvider) RawTransaction(key key.Key, request interface{}, property tx.Property) ([]byte, string, error) {
 	bnbTxRequest, ok := request.(*tx.BnbTxRequest)
 	if !ok {
-		return nil, "", xerrors.Wrapf(tx.ErrInvalidRequst, "ont provider can only handle tx.OntTxRequest")
+		return nil, "", xerrors.Wrapf(tx.ErrInvalidRequst, "bnb provider can only handle tx.BnbTxRequest")
 	}
 	if bnbTxRequest.GasPrice < gasPrice {
 		bnbTxRequest.GasPrice = gasPrice
@@ -34,18 +37,28 @@ func (provider *txProvider) RawTransaction(key key.Key, request interface{}, pro
 	if bnbTxRequest.GasLimits < gasLimits {
 		bnbTxRequest.GasLimits = gasLimits
 	}
-	sender, err := bnb.NewPrivateKeyManager(hex.EncodeToString(key.PriKey()))
+	if bnbTxRequest.Value < 0 {
+		return nil, "", xerrors.Wrapf(tx.ErrProperty, "value must bigger than 0")
+	}
+	pk := key.PriKey()
+	if pk == nil {
+		return nil, "", fmt.Errorf(" Only PrivKeySecp256k1 key is supported ")
+	}
+	sender, err := bnb.NewPrivateKeyManager(hex.EncodeToString(pk))
 	if err != nil {
 		return nil, "", err
 	}
-	transfers := []bnb.Transfer{bnb.Transfer{ToAddr: bnb.AccAddress(bnbTxRequest.To), Coins: []bnb.Coin{bnb.Coin{Denom: "BNB", Amount: 500000000}}}}
-	fromAddr := key.Address()
+	_, toBytes, err := bnb.DecodeAndConvert(bnbTxRequest.To)
+	if err != nil {
+		return nil, "", err
+	}
+	transfers := []bnb.Transfer{bnb.Transfer{ToAddr: bnb.AccAddress(toBytes), Coins: []bnb.Coin{bnb.Coin{Denom: "BNB", Amount: int64(bnbTxRequest.Value)}}}}
 	fromCoins := bnb.Coins{}
 	for _, t := range transfers {
 		t.Coins = t.Coins.Sort()
 		fromCoins = fromCoins.Plus(t.Coins)
 	}
-	sendMsg := bnb.CreateSendMsg(bnb.AccAddress(fromAddr), fromCoins, transfers)
+	sendMsg := bnb.CreateSendMsg(bnb.AccAddress(sender.GetAddr()), fromCoins, transfers)
 	signMsg := &bnb.StdSignMsg{
 		ChainID: bnbTxRequest.ChainID,
 		Memo:    "",
@@ -63,11 +76,25 @@ func (provider *txProvider) RawTransaction(key key.Key, request interface{}, pro
 	}
 
 	// Hex encoded signed transaction, ready to be posted to BncChain API
-	hexTx, err := sender.Sign(*signMsg)
+	sigBytes, err := sender.Sign(*signMsg)
 	if err != nil {
 		return nil, "", err
 	}
-	return hexTx, "", nil
+	return sigBytes, "", nil
+	sig := bnb.StdSignature{
+		AccountNumber: signMsg.AccountNumber,
+		Sequence:      signMsg.Sequence,
+		PubKey:        sender.GetPublicKey(),
+		Signature:     sigBytes,
+	}
+
+	newTx := bnb.NewStdTx(signMsg.Msgs, []bnb.StdSignature{sig}, signMsg.Memo, signMsg.Source, signMsg.Data)
+	bz, err := types.NewCodec().MarshalBinaryLengthPrefixed(&newTx) //没有过amino库????
+	if err != nil {
+		return nil, "", err
+	}
+	// return bz, nil
+	return []byte(hex.EncodeToString(bz)), "", nil
 }
 
 func init() {

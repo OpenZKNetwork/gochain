@@ -389,6 +389,7 @@ type BalanceAccount struct {
 	Balances  []TokenBalance `json:"balances"`
 	PublicKey []uint8        `json:"public_key"`
 	Sequence  int64          `json:"sequence"`
+	ChainID   string         `json:"chain_id"`
 }
 
 type TokenBalance struct {
@@ -411,7 +412,6 @@ type Token struct {
 type ResultStatus struct {
 	NodeInfo NodeInfo `json:"node_info"`
 	SyncInfo SyncInfo `json:"sync_info"`
-
 }
 type NodeInfo struct {
 	// Check compatibility.

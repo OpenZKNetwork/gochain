@@ -33,13 +33,13 @@ type client struct {
 // New .
 func New(HTTPURL, WsURL string, network int) Client {
 	client := &client{baseURL: HTTPURL, apiURL: fmt.Sprintf("%s://%s", DefaultApiSchema, HTTPURL+DefaultAPIVersionPrefix), wsURL: WsURL}
-	// res, err := client.GetNodeInfo()
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// client.chainID = res.NodeInfo.Network
+	res, err := client.GetNodeInfo()
+	if err != nil {
+		panic(err)
+	}
+	client.chainID = res.NodeInfo.Network
 	Network = ChainNetwork(network)
-	client.chainID = "Binance-Chain-Nile"
+	// client.chainID = "Binance-Chain-Nile"
 	return client
 
 }
@@ -194,6 +194,7 @@ func (c *client) GetAccount(address string) (*BalanceAccount, error) {
 	if err := json.Unmarshal(resp, &account); err != nil {
 		return nil, err
 	}
+	account.ChainID = c.chainID
 	return &account, nil
 }
 
