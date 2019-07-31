@@ -4,7 +4,6 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/binance-chain/go-sdk/types"
 	// "github.com/openzknetwork/gochain/rpc/bnb"
 
 	"github.com/dynamicgo/xerrors"
@@ -81,20 +80,6 @@ func (provider *txProvider) RawTransaction(key key.Key, request interface{}, pro
 		return nil, "", err
 	}
 	return sigBytes, "", nil
-	sig := bnb.StdSignature{
-		AccountNumber: signMsg.AccountNumber,
-		Sequence:      signMsg.Sequence,
-		PubKey:        sender.GetPublicKey(),
-		Signature:     sigBytes,
-	}
-
-	newTx := bnb.NewStdTx(signMsg.Msgs, []bnb.StdSignature{sig}, signMsg.Memo, signMsg.Source, signMsg.Data)
-	bz, err := types.NewCodec().MarshalBinaryLengthPrefixed(&newTx) //没有过amino库????
-	if err != nil {
-		return nil, "", err
-	}
-	// return bz, nil
-	return []byte(hex.EncodeToString(bz)), "", nil
 }
 
 func init() {
