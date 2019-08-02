@@ -75,26 +75,31 @@ func (fetcher *fetchImpl) FetchAndHandle(offset int64) (bool, error) {
 		if !ok {
 			continue
 		}
+		for _, v := range sendMsg.Outputs {
 
-		bnbTx := &bnb.Transaction{
-			From:     sendMsg.Inputs[0].Address.String(),
-			To:       sendMsg.Outputs[0].Address.String(),
-			Symbol:   strings.ToLower(sendMsg.Outputs[0].Coins[0].Denom),
-			Amount:   sendMsg.Outputs[0].Coins[0].Amount,
-			Tx:       strings.ToUpper(ToHexString(txHash)),
-			Block:    blockNumber,
-			T:        blockTime,
-			GasLimit: 1,
-			GasPrice: 37500, //transfer 固定 0.000375 BNB    https://docs.binance.org/trading-spec.html#current-fees-table-on-mainnet
+			for _, val := range v.Coins {
+				bnbTx := &bnb.Transaction{
+					From:     sendMsg.Inputs[0].Address.String(),
+					To:       v.Address.String(),
+					Symbol:   strings.ToLower(val.Denom),
+					Amount:   val.Amount,
+					Tx:       strings.ToUpper(ToHexString(txHash)),
+					Block:    blockNumber,
+					T:        blockTime,
+					GasLimit: 1,
+					GasPrice: 37500, //transfer 固定 0.000375 BNB    https://docs.binance.org/trading-spec.html#current-fees-table-on-mainnet
+				}
+
+				err = fetcher.handler.TX(bnbTx, int64(blockNumber), blockTime)
+
+				if err != nil {
+					fetcher.ErrorF("handle tx(%s) err %s", ToHexString(txHash), err)
+					return false, err
+				}
+
+			}
+
 		}
-
-		err = fetcher.handler.TX(bnbTx, int64(blockNumber), blockTime)
-
-		if err != nil {
-			fetcher.ErrorF("handle tx(%s) err %s", ToHexString(txHash), err)
-			return false, err
-		}
-
 		fetcher.TraceF("handle tx(%s) -- success", ToHexString(txHash))
 	}
 
