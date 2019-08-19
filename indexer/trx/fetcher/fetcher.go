@@ -14,12 +14,13 @@ import (
 const (
 	trxTransferType = "TransferContract"
 	trxSuccess      = "SUCCESS"
+	trxAddress      = ""
 )
 
 //Handler  .
 type Handler interface {
 	Block(block *trx.Block, blockNumber int64, blockTime time.Time) error
-	TX(tx *trx.ParameterValue, blockNumber int64, blockTime time.Time) error
+	TX(tx *trx.Transaction, blockNumber int64, blockTime time.Time) error
 }
 
 type fetchImpl struct {
@@ -67,14 +68,18 @@ func (fetcher *fetchImpl) FetchAndHandle(offset int64) (bool, error) {
 	blockTime := time.Unix(int64(block.BlockHeader.RawData.Timestamp), 0)
 	for _, v := range block.Transactions {
 		txHash := v.TxID
-		if v.Ret[0].ContractRet == trxSuccess {
-			for _, val := range v.RawData.Contract {
-				if val.Type == trxTransferType {
-					err = fetcher.handler.TX(&val.Parameter.Value, int64(blockNumber), blockTime)
-					if err != nil {
-						fetcher.ErrorF("handle tx(%s) err %s", txHash, err)
-						return false, err
-					}
+		for _, val := range v.RawData.Contract {
+			if val.Type == trxTransferType {
+				tx := &trx.Transaction{
+					ParameterValue: val.Parameter.Value,
+					TxID:           v.TxID,
+					State:          v.Ret[0].ContractRet,
+					TxType:         val.Type,
+				}
+				err = fetcher.handler.TX(tx, int64(blockNumber), blockTime)
+				if err != nil {
+					fetcher.ErrorF("handle tx(%s) err %s", txHash, err)
+					return false, err
 				}
 			}
 		}

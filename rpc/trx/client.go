@@ -67,6 +67,14 @@ type ParameterValue struct {
 	ContractAddress string `json:"contract_address"` //block interface 含有
 }
 
+// Transaction .
+type Transaction struct {
+	ParameterValue
+	TxID   string `json:"tx_id"`
+	State  string `json:"state"`
+	TxType string `json:"tx_type"`
+}
+
 // Block .
 type Block struct {
 	BlockID      string               `json:"blockID"`
