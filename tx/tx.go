@@ -4,6 +4,8 @@ import (
 	"errors"
 	"math/big"
 
+	"github.com/openzknetwork/gochain/rpc/trx"
+
 	"github.com/dynamicgo/fixed"
 	"github.com/openzknetwork/key"
 
@@ -51,6 +53,14 @@ type BnbTxRequest struct {
 	ChainID     string
 	AccSequence int64
 	AccNumber   int64
+}
+
+// TrxTxRequest .
+type TrxTxRequest struct {
+	To          string
+	Value       uint64
+	Script      []byte
+	Transaction trx.CreateTransactionResponse
 }
 
 // Property .
