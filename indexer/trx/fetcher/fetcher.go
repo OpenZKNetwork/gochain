@@ -11,7 +11,10 @@ import (
 	"github.com/openzknetwork/gochain/rpc/trx"
 )
 
-const trxTransferType = "TransferContract"
+const (
+	trxTransferType = "TransferContract"
+	trxSuccess      = "SUCCESS"
+)
 
 //Handler  .
 type Handler interface {
@@ -64,12 +67,14 @@ func (fetcher *fetchImpl) FetchAndHandle(offset int64) (bool, error) {
 	blockTime := time.Unix(int64(block.BlockHeader.RawData.Timestamp), 0)
 	for _, v := range block.Transactions {
 		txHash := v.TxID
-		for _, val := range v.RawData.Contract {
-			if val.Type == trxTransferType {
-				err = fetcher.handler.TX(&val.Parameter.Value, int64(blockNumber), blockTime)
-				if err != nil {
-					fetcher.ErrorF("handle tx(%s) err %s", txHash, err)
-					return false, err
+		if v.Ret[0].ContractRet == trxSuccess {
+			for _, val := range v.RawData.Contract {
+				if val.Type == trxTransferType {
+					err = fetcher.handler.TX(&val.Parameter.Value, int64(blockNumber), blockTime)
+					if err != nil {
+						fetcher.ErrorF("handle tx(%s) err %s", txHash, err)
+						return false, err
+					}
 				}
 			}
 		}
