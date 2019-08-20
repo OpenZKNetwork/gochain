@@ -37,7 +37,7 @@ func TestTrxLocalTransaction(t *testing.T) {
 	client := trx.New("https://api.shasta.trongrid.io")
 	to := "T9yai3UbXbDaGpVdsDHZyZC3wjqSLk4aor"
 	amount := uint32(1)
-	transaction, err := client.CreateTransaction(k.Address(), to, amount)
+	transaction, err := client.CreateTransaction(k.Address(), to,"", amount)
 	if err != nil {
 		fmt.Println(err.Error())
 		return
@@ -109,4 +109,55 @@ func getClient() trx.Client {
 
 func print(data interface{}) {
 	fmt.Printf("%+v \n", data)
+}
+
+func TestAsset(t *testing.T) {
+	h,_:=hex.DecodeString("31303030303131")
+	println(string(h))
+	println(trx.Address2Hex("TTzPiwbBedv7E8p4FkyPyeqq4RVoqRL3TW"))
+	return
+	s:=hex.EncodeToString([]byte("1000011"))
+	
+	k, err := key.New("trx")
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+	pri1 := "BED37B6E9F104D5E3730C1B5ACA24DEA1BFCF08EDE78B7CD5B961F1DD98B1EF1"
+	p1, err := hex.DecodeString(pri1)
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+	k.SetBytes(p1)
+
+	println("address ", k.Address())
+
+	client := trx.New("https://api.shasta.trongrid.io")
+	to := "T9yai3UbXbDaGpVdsDHZyZC3wjqSLk4aor"
+	amount := uint32(1)
+	transaction, err := client.CreateTransaction(k.Address(), to,s, amount)
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+
+	data, _, err := tx.RawTransaction("trx", k, &tx.TrxTxRequest{
+		To:          "T9yai3UbXbDaGpVdsDHZyZC3wjqSLk4aor",
+		Value:       1,
+		Transaction: *transaction,
+	}, nil)
+
+	if err != nil {
+		fmt.Printf("RawTransaction error %s \n", err.Error())
+		return
+	}
+
+	res, err := client.SendRawTransaction(data)
+	if err != nil {
+		fmt.Printf("SendRawTransaction error %s \n", err.Error())
+		return
+	}
+
+	fmt.Printf("res %s \n", res)
 }

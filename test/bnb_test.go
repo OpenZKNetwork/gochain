@@ -21,7 +21,7 @@ var (
 const privkey1 = "e0964451603e6e0e85a67d7e1fff26579e5f05108886b8ef8a940e5f3b861f6d"
 const privkey2 = "9dde022641040e10f7d5be812990f6cab241c981ae83f4643858a4e35246d0af"
 
-func init() {
+func initD() {
 	bnb.Network = bnb.TestNetwork
 
 	k1, err := bnb.NewPrivateKeyManager(privkey1)

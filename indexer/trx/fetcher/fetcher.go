@@ -12,9 +12,10 @@ import (
 )
 
 const (
-	trxTransferType = "TransferContract"
-	trxSuccess      = "SUCCESS"
-	trxAddress      = ""
+	trxTransferContract      = "TransferContract"
+	trxTransferAssetContract = "TransferAssetContract"
+	trxSuccess               = "SUCCESS"
+	trxAddress               = ""
 )
 
 //Handler  .
@@ -69,7 +70,16 @@ func (fetcher *fetchImpl) FetchAndHandle(offset int64) (bool, error) {
 	for _, v := range block.Transactions {
 		txHash := v.TxID
 		for _, val := range v.RawData.Contract {
-			if val.Type == trxTransferType {
+			if val.Type == trxTransferContract || val.Type == trxTransferAssetContract {
+				if val.Parameter.Value.ContractAddress == "" {
+					val.Parameter.Value.ContractAddress = trx.TrxPrefix
+				} else {
+					contractAddress, err := hex.DecodeString(val.Parameter.Value.ContractAddress)
+					if err != nil {
+						return false, err
+					}
+					val.Parameter.Value.ContractAddress = trx.TrxPrefix + string(contractAddress)
+				}
 				tx := &trx.Transaction{
 					ParameterValue: val.Parameter.Value,
 					TxID:           v.TxID,

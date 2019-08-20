@@ -103,7 +103,7 @@ type Account struct {
 	AccountName string         `json:"account_name"`
 	Address     string         `json:"address"`
 	Balance     uint64         `json:"balance"`
-	Asset       []AccountAsset `json:"asset"`
+	Asset       []AccountAsset `json:"assetV2"`
 }
 
 // AccountAsset .
@@ -120,11 +120,16 @@ type Fee struct {
 	BlockTimeStamp uint64 `json:"blockTimeStamp"`
 }
 
+const (
+	//TrxPrefix .
+	TrxPrefix = "TRX"
+)
+
 //Client .
 type Client interface {
 	GetAccount(address string) (*Account, error)
-	GetBalance(addr string, symbol string) (uint64, error)
-	CreateTransaction(from, to string, amount uint32) (*CreateTransactionResponse, error)
+	GetBalance(addr string, asset string) (uint64, error)
+	CreateTransaction(from, to, asset string, amount uint32) (*CreateTransactionResponse, error)
 	// Transfer(keyManager KeyManager, transfers []Transfer) (*TxCommitResult, error)
 	// GetTokens() ([]Token, error)
 	GetTransactionReceipt(txid string) (*TransactionReceipt, error)
@@ -179,7 +184,7 @@ func (c *client) GetAccount(address string) (*Account, error) {
 	return parse, nil
 }
 
-func (c *client) GetBalance(addr string, symbol string) (uint64, error) {
+func (c *client) GetBalance(addr string, asset string) (uint64, error) {
 	hexAddress := Address2Hex(addr)
 	body, err := c.Post("/wallet/getaccount", map[string]interface{}{"address": hexAddress}, nil)
 	if err != nil {
@@ -190,25 +195,40 @@ func (c *client) GetBalance(addr string, symbol string) (uint64, error) {
 	if err := json.Unmarshal(body, &parse); err != nil {
 		return 0, err
 	}
+	asset = strings.TrimLeft(asset, TrxPrefix)
+
+	if asset == "" {
+		return parse.Balance, nil
+	}
+
 	if parse.Asset != nil && len(parse.Asset) > 0 {
-		for _, asset := range parse.Asset {
-			if asset.Key == symbol {
-				return asset.Value, nil
+		for _, val := range parse.Asset {
+			if val.Key == asset {
+				return val.Value, nil
 			}
 		}
 		return 0, nil
-	}
-	if symbol == "TRX" {
-		return parse.Balance, nil
 	}
 	return 0, nil
 }
 
 // CreateTransaction .
-func (c *client) CreateTransaction(from, to string, amount uint32) (*CreateTransactionResponse, error) {
+func (c *client) CreateTransaction(from, to, asset string, amount uint32) (*CreateTransactionResponse, error) {
 	from = Address2Hex(from)
 	to = Address2Hex(to)
-	body, err := c.Post("/wallet/createtransaction", map[string]interface{}{"to_address": to, "owner_address": from, "amount": amount}, nil)
+	asset = strings.TrimLeft(asset, TrxPrefix)
+	data := map[string]interface{}{"to_address": to, "owner_address": from, "amount": amount}
+	var (
+		body []byte
+		err  error
+	)
+	if asset == "" {
+		body, err = c.Post("/wallet/createtransaction", data, nil)
+	} else {
+		data["asset_name"] = hex.EncodeToString([]byte(asset))
+		body, err = c.Post("/wallet/transferasset", data, nil)
+	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -277,14 +297,15 @@ func (c *client) BestBlockNumber() (uint32, error) {
 
 // Post generic method
 func (c *client) Post(path string, body interface{}, param map[string]string) ([]byte, error) {
-	body, ok := body.(map[string]interface{})
+	bodymap, ok := body.(map[string]interface{})
 	if ok {
 		var err error
-		body, err = json.Marshal(body)
+		body, err = json.Marshal(bodymap)
 		if err != nil {
 			return nil, err
 		}
 	}
+
 	resp, err := resty.R().
 		SetHeader("Content-Type", "text/plain").
 		SetBody(body).
