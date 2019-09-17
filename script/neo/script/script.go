@@ -14,9 +14,7 @@ import (
 
 	"github.com/dynamicgo/slf4go"
 	"github.com/dynamicgo/xerrors"
-	base58 "github.com/itchyny/base58-go"
-
-	// "github.com/openzknetwork/gochain/rpc/ont"
+	"github.com/openzknetwork/gochain/internal/base58"
 
 	"golang.org/x/crypto/ripemd160"
 )
@@ -64,7 +62,7 @@ func (script *Script) Emit(opcode OpCode, arg []byte) *Script {
 		Arg:  arg,
 	}
 
-	script.DebugF("emit %s", op)
+	// script.DebugF("emit %s", op)
 
 	script.Ops = append(script.Ops, op)
 
