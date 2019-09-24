@@ -36,6 +36,9 @@ func (provider *txProvider) RawTransaction(key key.Key, request interface{}, pro
 	if bnbTxRequest.GasLimits < gasLimits {
 		bnbTxRequest.GasLimits = gasLimits
 	}
+	if bnbTxRequest.Denom == "" {
+		bnbTxRequest.Denom = "BNB"
+	}
 	if bnbTxRequest.Value < 0 {
 		return nil, "", xerrors.Wrapf(tx.ErrProperty, "value must bigger than 0")
 	}
@@ -51,7 +54,7 @@ func (provider *txProvider) RawTransaction(key key.Key, request interface{}, pro
 	if err != nil {
 		return nil, "", err
 	}
-	transfers := []bnb.Transfer{bnb.Transfer{ToAddr: bnb.AccAddress(toBytes), Coins: []bnb.Coin{bnb.Coin{Denom: "BNB", Amount: int64(bnbTxRequest.Value)}}}}
+	transfers := []bnb.Transfer{bnb.Transfer{ToAddr: bnb.AccAddress(toBytes), Coins: []bnb.Coin{bnb.Coin{Denom: bnbTxRequest.Denom, Amount: int64(bnbTxRequest.Value)}}}}
 	fromCoins := bnb.Coins{}
 	for _, t := range transfers {
 		t.Coins = t.Coins.Sort()
