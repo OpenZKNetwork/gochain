@@ -14,7 +14,7 @@ import (
 
 	"github.com/dynamicgo/slf4go"
 	"github.com/dynamicgo/xerrors"
-	"github.com/openzknetwork/gochain/internal/base58"
+	"github.com/openzknetwork/gochain/utils/base58"
 
 	"golang.org/x/crypto/ripemd160"
 )

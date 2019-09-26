@@ -41,7 +41,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/openzknetwork/gochain/internal/base58"
+	"github.com/openzknetwork/gochain/utils/base58"
 	"golang.org/x/crypto/ed25519"
 	"golang.org/x/crypto/ripemd160"
 )

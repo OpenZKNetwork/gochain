@@ -13,7 +13,7 @@ import (
 	"io"
 	"math/big"
 
-	"github.com/openzknetwork/gochain/internal/base58"
+	"github.com/openzknetwork/gochain/utils/base58"
 )
 
 const (
