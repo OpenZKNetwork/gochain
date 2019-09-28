@@ -14,7 +14,7 @@ import (
 
 	"github.com/dynamicgo/slf4go"
 	"github.com/dynamicgo/xerrors"
-	base58 "github.com/itchyny/base58-go"
+	"github.com/openzknetwork/gochain/internal/base58"
 
 	// "github.com/openzknetwork/gochain/rpc/ont"
 
@@ -324,7 +324,7 @@ func (f *Address) ToBase58() string {
 	data = append(data, temps[0:4]...)
 
 	bi := new(big.Int).SetBytes(data).String()
-	encoded, _ := base58.BitcoinEncoding.Encode([]byte(bi))
+	encoded := base58.Encode([]byte(bi))
 	return string(encoded)
 }
 
@@ -365,10 +365,7 @@ func AddressFromBase58(encoded string) (Address, error) {
 	if encoded == "" || len(encoded) > MaxBase58AddrLen {
 		return ADDRESS_EMPTY, errors.New("invalid address")
 	}
-	decoded, err := base58.BitcoinEncoding.Decode([]byte(encoded))
-	if err != nil {
-		return ADDRESS_EMPTY, err
-	}
+	decoded := base58.Decode(encoded)
 
 	x, ok := new(big.Int).SetString(string(decoded), 10)
 	if !ok {
