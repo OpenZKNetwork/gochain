@@ -35,7 +35,6 @@ func initD() {
 	if err != nil {
 		panic(err)
 	}
-
 	key2 = k2
 
 	c = bnb.New("testnet-dex.binance.org", "https://seed-pre-s3.binance.org", 0)
@@ -48,7 +47,8 @@ func TestTx(t *testing.T) {
 	hexk1, err := hex.DecodeString((privkey1))
 	require.Nil(t, err)
 	k.SetBytes(hexk1)
-
+	println(k.Address())
+	return
 	k2, err := key.New("bnb")
 	require.Nil(t, err)
 	hexk2, err := hex.DecodeString((privkey2))

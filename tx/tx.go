@@ -53,6 +53,7 @@ type BnbTxRequest struct {
 	ChainID     string
 	AccSequence int64
 	AccNumber   int64
+	Denom       string
 }
 
 // TrxTxRequest .
