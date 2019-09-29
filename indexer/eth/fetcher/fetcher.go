@@ -36,7 +36,7 @@ func New(ethnode string, handler Handler) indexer.Fetcher {
 func (fetcher *fetchImpl) FetchAndHandle(offset int64) (bool, error) {
 
 	fetcher.DebugF("fetch best block number")
-
+	
 	bestBlock, err := fetcher.client.BestBlockNumber()
 
 	if err != nil {

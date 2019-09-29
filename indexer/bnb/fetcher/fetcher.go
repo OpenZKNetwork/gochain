@@ -41,6 +41,9 @@ func (fetcher *fetchImpl) FetchAndHandle(offset int64) (bool, error) {
 
 	fetcher.DebugF("fetch best block number")
 
+	//Notice: 处理 API rate limit exceeded
+	time.Sleep(1)
+
 	bestBlock, err := fetcher.client.BestBlockNumber()
 
 	if err != nil {
@@ -52,6 +55,8 @@ func (fetcher *fetchImpl) FetchAndHandle(offset int64) (bool, error) {
 	}
 
 	fetcher.DebugF("get best block by number %d", offset)
+	//Notice: 处理 API rate limit exceeded
+	time.Sleep(1)
 
 	block, err := fetcher.client.GetBlockByNumber(uint32(offset))
 

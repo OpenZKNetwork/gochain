@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/binance-chain/go-sdk/keys"
 	"github.com/binance-chain/go-sdk/types"
@@ -52,6 +53,20 @@ func init() {
 	key3 = k
 
 	c = New("testnet-dex.binance.org", "https://seed-pre-s3.binance.org", 0)
+}
+
+func TestBestNumber(t *testing.T) {
+
+	for i := 1; i < 10; i++ {
+		num, err := c.BestBlockNumber()
+		assert.Nil(t, err)
+		time.Sleep(1)
+		block, err := c.GetBlockByNumber(num)
+		assert.Nil(t, err)
+
+		fmt.Printf("%#v \n", block)
+	}
+
 }
 
 func TestKey(t *testing.T) {
@@ -109,8 +124,8 @@ func TestTransfer(t *testing.T) {
 	assert.Nil(t, err)
 	k2, err := NewPrivateKeyManager(prikey2)
 	assert.Nil(t, err)
-	fmt.Printf("k2 address %+v \n",k2.GetAddr())
-	return 
+	fmt.Printf("k2 address %+v \n", k2.GetAddr())
+	return
 	res, err := c.Transfer(k1, []Transfer{Transfer{ToAddr: k2.GetAddr(), Coins: []Coin{Coin{Denom: "BNB", Amount: 500000000}}}})
 	assert.Nil(t, err)
 	fmt.Printf("%#v \n", res)
@@ -216,7 +231,6 @@ func TestParseTx(t *testing.T) {
 	println(string(bz))
 }
 
-
-func TestKey3(t *testing.T){
+func TestKey3(t *testing.T) {
 	println(key3.GetAddr().String())
 }
