@@ -20,6 +20,8 @@ var (
 	key keys.KeyManager //tbnb1cvcjlusryp3clfa755nzkhhhvvhuh53xd7alss
 
 	key2 keys.KeyManager //tbnb1k7m2qlp0ruacpcggh0rj2t44eqfqquntn6k8ew
+
+	key3 keys.KeyManager
 )
 
 const privkey1 = "e0964451603e6e0e85a67d7e1fff26579e5f05108886b8ef8a940e5f3b861f6d"
@@ -41,6 +43,13 @@ func init() {
 	}
 
 	key2 = k
+
+	k, err = keys.NewKeyStoreKeyManager("key3.txt", "123456Z,")
+	if err != nil {
+		panic(err)
+	}
+
+	key3 = k
 
 	c = New("testnet-dex.binance.org", "https://seed-pre-s3.binance.org", 0)
 }
@@ -205,4 +214,9 @@ func TestParseTx(t *testing.T) {
 
 	}
 	println(string(bz))
+}
+
+
+func TestKey3(t *testing.T){
+	println(key3.GetAddr().String())
 }

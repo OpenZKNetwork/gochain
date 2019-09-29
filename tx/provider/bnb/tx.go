@@ -63,7 +63,7 @@ func (provider *txProvider) RawTransaction(key key.Key, request interface{}, pro
 	sendMsg := bnb.CreateSendMsg(bnb.AccAddress(sender.GetAddr()), fromCoins, transfers)
 	signMsg := &bnb.StdSignMsg{
 		ChainID: bnbTxRequest.ChainID,
-		Memo:    "",
+		Memo:    bnbTxRequest.Memo,
 		Msgs:    []bnb.Msg{sendMsg},
 		Source:  bnb.Source,
 	}
