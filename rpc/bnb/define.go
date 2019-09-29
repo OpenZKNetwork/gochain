@@ -767,7 +767,7 @@ type BlockMeta struct {
 }
 
 type MetaHeader struct {
-	Height string     `json:"height"`
+	Height string    `json:"height"`
 	Time   time.Time `json:"time"`
 }
 
