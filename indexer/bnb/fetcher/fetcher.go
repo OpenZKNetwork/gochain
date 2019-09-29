@@ -32,7 +32,7 @@ type fetchImpl struct {
 func New(apinode, wsnode string, network int, handler Handler) indexer.Fetcher {
 	return &fetchImpl{
 		Logger:  slf4go.Get("ont-fetcher"),
-		client:  bnb.New(apinode, apinode, network),
+		client:  bnb.New(apinode, wsnode, network),
 		handler: handler,
 	}
 }
