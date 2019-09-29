@@ -5,12 +5,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/binance-chain/go-sdk/types"
-	"github.com/binance-chain/go-sdk/types/msg"
 	"github.com/dynamicgo/slf4go"
 
-	ctypestx "github.com/binance-chain/go-sdk/types/tx"
 	"github.com/openzknetwork/gochain/indexer"
+	"github.com/tendermint/go-amino"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 
 	"github.com/openzknetwork/gochain/rpc/bnb"
@@ -70,13 +68,13 @@ func (fetcher *fetchImpl) FetchAndHandle(offset int64) (bool, error) {
 
 	blockNumber := block.BlockMeta.Header.Height
 	blockTime := block.BlockMeta.Header.Time
-	codec := types.NewCodec()
+	codec := amino.NewCodec()
 	for _, v := range block.Block.Txs {
 		txHash := v.Hash()
 
-		m := new(ctypestx.StdTx)
+		m := new(bnb.StdTx)
 		codec.UnmarshalBinaryLengthPrefixed(v, m)
-		sendMsg, ok := m.Msgs[0].(msg.SendMsg)
+		sendMsg, ok := m.Msgs[0].(bnb.SendMsg)
 		if !ok {
 			continue
 		}

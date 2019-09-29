@@ -750,7 +750,8 @@ type Blocks struct {
 	SResult `json:"result"`
 }
 type SResult struct {
-	Block `json:"block"`
+	Block     `json:"block"`
+	BlockMeta `json:"block_meta"`
 }
 
 type Block struct {
@@ -759,6 +760,15 @@ type Block struct {
 
 type Data struct {
 	Txs []types.Tx `json:"txs"`
+}
+
+type BlockMeta struct {
+	MetaHeader `json:"header"`
+}
+
+type MetaHeader struct {
+	Height string     `json:"height"`
+	Time   time.Time `json:"time"`
 }
 
 //Transaction .

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/binance-chain/go-sdk/keys"
 	"github.com/binance-chain/go-sdk/types"
@@ -60,11 +59,11 @@ func TestBestNumber(t *testing.T) {
 	for i := 1; i < 10; i++ {
 		num, err := c.BestBlockNumber()
 		assert.Nil(t, err)
-		time.Sleep(1)
+		fmt.Printf("%d \n", num)
 		block, err := c.GetBlockByNumber(num)
 		assert.Nil(t, err)
 
-		fmt.Printf("%#v \n", block)
+		fmt.Printf("%#v \n", block.BlockMeta)
 	}
 
 }
@@ -80,12 +79,20 @@ func TestKey(t *testing.T) {
 }
 
 func TestGet(t *testing.T) {
-	b, _, err := c.Get("/block", map[string]string{"height": "1"}, false)
+	b, _, err := c.Get("/block", map[string]string{"height": "1"}, true)
 	assert.Nil(t, err)
 	var resp map[string]interface{}
 	err = json.Unmarshal(b, &resp)
 	assert.Nil(t, err)
 	fmt.Printf("%+v \n", resp)
+}
+
+func TestGetBlock(t *testing.T){
+	b, err := c.GetBlockByNumber(29507929)
+	assert.Nil(t, err)
+
+	fmt.Printf("%#v \n", b)
+
 }
 func TestAccount(t *testing.T) {
 	b, err := c.GetAccount("tbnb1cvcjlusryp3clfa755nzkhhhvvhuh53xd7alss")
@@ -138,7 +145,9 @@ func TestEq(t *testing.T) {
 }
 
 func TestGetTx(t *testing.T) {
-	tx := "C022C197C77E493F454042A69BE77923E361118EF8E20B21E0AFB230501B771F"
+	// tx := "C022C197C77E493F454042A69BE77923E361118EF8E20B21E0AFB230501B771F"
+	tx := "906F29938F9D3B62CB1D84787ECF706D76579A04DD693754A73B8F7EB0F51B45"
+
 	resp, err := c.GetTransactionReceipt(tx)
 	assert.Nil(t, err)
 
