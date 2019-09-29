@@ -31,16 +31,16 @@ type client struct {
 }
 
 // New .
-func New(HTTPURL, WsURL string, network int) Client {
+func New(HTTPURL, WsURL string, network int) (Client, error) {
 	client := &client{baseURL: HTTPURL, apiURL: fmt.Sprintf("%s://%s", DefaultApiSchema, HTTPURL+DefaultAPIVersionPrefix), wsURL: WsURL}
 	res, err := client.GetNodeInfo()
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	client.chainID = res.NodeInfo.Network
 	Network = ChainNetwork(network)
 	// client.chainID = "Binance-Chain-Nile"
-	return client
+	return client, nil
 
 }
 
