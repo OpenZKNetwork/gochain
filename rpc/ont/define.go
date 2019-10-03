@@ -13,7 +13,7 @@ import (
 	"io"
 	"math/big"
 
-	"github.com/openzknetwork/gochain/utils/base58"
+	"github.com/openzknetwork/gochain/internal/base58"
 )
 
 const (
@@ -597,7 +597,7 @@ func (f *Address) ToBase58() string {
 	data = append(data, temps[0:4]...)
 
 	bi := new(big.Int).SetBytes(data).String()
-	encoded, _ := base58.BitcoinEncoding.Encode([]byte(bi))
+	encoded := base58.Encode([]byte(bi))
 	return string(encoded)
 }
 

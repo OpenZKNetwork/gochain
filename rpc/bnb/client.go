@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	ctypes "github.com/tendermint/tendermint/rpc/core/types"
+	"github.com/tendermint/tendermint/types"
 
 	"github.com/go-resty/resty"
 )
@@ -19,7 +19,7 @@ type Client interface {
 	Transfer(keyManager KeyManager, transfers []Transfer) (*TxCommitResult, error)
 	GetTokens() ([]Token, error)
 	GetTransactionReceipt(tx string) (*TxResponse, error)
-	GetBlockByNumber(height uint32) (*ctypes.ResultBlock, error)
+	GetBlockByNumber(height uint32) (*Blocks, error)
 	BestBlockNumber() (uint32, error)
 	SendRawTransaction(tx []byte) (string, error)
 }
@@ -31,16 +31,16 @@ type client struct {
 }
 
 // New .
-func New(HTTPURL, WsURL string, network int) Client {
+func New(HTTPURL, WsURL string, network int) (Client, error) {
 	client := &client{baseURL: HTTPURL, apiURL: fmt.Sprintf("%s://%s", DefaultApiSchema, HTTPURL+DefaultAPIVersionPrefix), wsURL: WsURL}
 	res, err := client.GetNodeInfo()
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	client.chainID = res.NodeInfo.Network
 	Network = ChainNetwork(network)
 	// client.chainID = "Binance-Chain-Nile"
-	return client
+	return client, nil
 
 }
 
@@ -284,17 +284,19 @@ func (c *client) PostTx(hexTx []byte, param map[string]string) ([]TxCommitResult
 	return txResult, nil
 }
 
-func (c *client) GetBlockByNumber(height uint32) (*ctypes.ResultBlock, error) {
+func (c *client) GetBlockByNumber(height uint32) (*Blocks, error) {
 	block, _, err := c.Get("/block", map[string]string{"height": fmt.Sprintf("%d", height)}, true)
 	if err != nil {
 		return nil, err
 	}
-	res := new(ctypes.ResultBlock)
-	err = json.Unmarshal(block, res)
+
+	data := new(Blocks)
+	err = json.Unmarshal(block, data)
 	if err != nil {
 		return nil, err
 	}
-	return res, nil
+
+	return data, nil
 }
 
 // GetTokens returns list of tokens
@@ -337,4 +339,9 @@ func GenerateOrderID(sequence int64, from AccAddress) string {
 // CombineSymbol .
 func CombineSymbol(baseAssetSymbol, quoteAssetSymbol string) string {
 	return fmt.Sprintf("%s_%s", baseAssetSymbol, quoteAssetSymbol)
+}
+
+type ResultBlock struct {
+	BlockMeta types.BlockMeta `json:"block_meta"`
+	Block     types.Block     `json:"block"`
 }

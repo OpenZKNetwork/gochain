@@ -54,6 +54,7 @@ type BnbTxRequest struct {
 	AccSequence int64
 	AccNumber   int64
 	Denom       string
+	Memo		string
 }
 
 // TrxTxRequest .

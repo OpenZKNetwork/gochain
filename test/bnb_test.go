@@ -35,6 +35,7 @@ func initD() {
 	if err != nil {
 		panic(err)
 	}
+	
 	key2 = k2
 
 	c = bnb.New("testnet-dex.binance.org", "https://seed-pre-s3.binance.org", 0)
@@ -65,6 +66,8 @@ func TestTx(t *testing.T) {
 
 	// fmt.Printf("k2 address %+v \n", bnb.AccAddress([]byte(k2.Address())))
 	// return
+	
+
 	bt, _, err := tx.RawTransaction("bnb", k, &tx.BnbTxRequest{
 		To:          k2.Address(),
 		GasPrice:    37500,

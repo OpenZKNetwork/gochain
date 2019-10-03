@@ -41,7 +41,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/openzknetwork/gochain/utils/base58"
+	"github.com/openzknetwork/gochain/internal/base58"
 	"golang.org/x/crypto/ed25519"
 	"golang.org/x/crypto/ripemd160"
 )
@@ -911,10 +911,8 @@ func AddressFromBase58(encoded string) (Address, error) {
 	if encoded == "" || len(encoded) > MaxBase58AddrLen {
 		return ADDRESS_EMPTY, errors.New("invalid address")
 	}
-	decoded, err := base58.BitcoinEncoding.Decode([]byte(encoded))
-	if err != nil {
-		return ADDRESS_EMPTY, err
-	}
+	decoded := base58.Decode(encoded)
+	
 
 	x, ok := new(big.Int).SetString(string(decoded), 10)
 	if !ok {

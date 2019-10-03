@@ -20,6 +20,8 @@ var (
 	key keys.KeyManager //tbnb1cvcjlusryp3clfa755nzkhhhvvhuh53xd7alss
 
 	key2 keys.KeyManager //tbnb1k7m2qlp0ruacpcggh0rj2t44eqfqquntn6k8ew
+
+	key3 keys.KeyManager
 )
 
 const privkey1 = "e0964451603e6e0e85a67d7e1fff26579e5f05108886b8ef8a940e5f3b861f6d"
@@ -42,7 +44,32 @@ func init() {
 
 	key2 = k
 
-	c = New("testnet-dex.binance.org", "https://seed-pre-s3.binance.org", 0)
+	k, err = keys.NewKeyStoreKeyManager("key3.txt", "123456Z,")
+	if err != nil {
+		panic(err)
+	}
+
+	key3 = k
+
+	client, err := New("testnet-dex.binance.org", "https://seed-pre-s3.binance.org", 0)
+	if err != nil {
+		panic(err)
+	}
+	c = client
+}
+
+func TestBestNumber(t *testing.T) {
+
+	for i := 1; i < 10; i++ {
+		num, err := c.BestBlockNumber()
+		assert.Nil(t, err)
+		fmt.Printf("%d \n", num)
+		block, err := c.GetBlockByNumber(num)
+		assert.Nil(t, err)
+
+		fmt.Printf("%#v \n", block.BlockMeta)
+	}
+
 }
 
 func TestKey(t *testing.T) {
@@ -56,12 +83,20 @@ func TestKey(t *testing.T) {
 }
 
 func TestGet(t *testing.T) {
-	b, _, err := c.Get("/block", map[string]string{"height": "1"}, false)
+	b, _, err := c.Get("/block", map[string]string{"height": "1"}, true)
 	assert.Nil(t, err)
 	var resp map[string]interface{}
 	err = json.Unmarshal(b, &resp)
 	assert.Nil(t, err)
 	fmt.Printf("%+v \n", resp)
+}
+
+func TestGetBlock(t *testing.T) {
+	b, err := c.GetBlockByNumber(29507929)
+	assert.Nil(t, err)
+
+	fmt.Printf("%#v \n", b)
+
 }
 func TestAccount(t *testing.T) {
 	b, err := c.GetAccount("tbnb1cvcjlusryp3clfa755nzkhhhvvhuh53xd7alss")
@@ -100,8 +135,8 @@ func TestTransfer(t *testing.T) {
 	assert.Nil(t, err)
 	k2, err := NewPrivateKeyManager(prikey2)
 	assert.Nil(t, err)
-	fmt.Printf("k2 address %+v \n",k2.GetAddr())
-	return 
+	fmt.Printf("k2 address %+v \n", k2.GetAddr())
+	return
 	res, err := c.Transfer(k1, []Transfer{Transfer{ToAddr: k2.GetAddr(), Coins: []Coin{Coin{Denom: "BNB", Amount: 500000000}}}})
 	assert.Nil(t, err)
 	fmt.Printf("%#v \n", res)
@@ -114,7 +149,9 @@ func TestEq(t *testing.T) {
 }
 
 func TestGetTx(t *testing.T) {
-	tx := "C022C197C77E493F454042A69BE77923E361118EF8E20B21E0AFB230501B771F"
+	// tx := "C022C197C77E493F454042A69BE77923E361118EF8E20B21E0AFB230501B771F"
+	tx := "906F29938F9D3B62CB1D84787ECF706D76579A04DD693754A73B8F7EB0F51B45"
+
 	resp, err := c.GetTransactionReceipt(tx)
 	assert.Nil(t, err)
 
@@ -124,7 +161,12 @@ func TestGetTx(t *testing.T) {
 func TestBlocks(t *testing.T) {
 	// s1 := "tbnb1cvcjlusryp3clfa755nzkhhhvvhuh53xd7alss"
 	// s2 := "tbnb1k7m2qlp0ruacpcggh0rj2t44eqfqquntn6k8ew"
-	block, _, err := c.Get("/block", map[string]string{"height": "29507929"}, true)
+	//transfer  41894952
+	//data &tx.StdTx{Msgs:[]msg.Msg{msg.SendMsg{Inputs:[]msg.Input{msg.Input{Address:types.AccAddress{0xc3, 0x31, 0x2f, 0xf2, 0x3, 0x20, 0x63, 0x8f, 0xa7, 0xbe, 0xa5, 0x26, 0x2b, 0x5e, 0xf7, 0x63, 0x2f, 0xcb, 0xd2, 0x26}, Coins:types.Coins{types.Coin{Denom:"BNB", Amount:1000000000}}}}, Outputs:[]msg.Output{msg.Output{Address:types.AccAddress{0x53, 0xf2, 0xb7, 0xdc, 0x97, 0x63, 0x1, 0x56, 0x89, 0xd5, 0x4f, 0x3c, 0xcd, 0xec, 0xd0, 0x1a, 0xab, 0x50, 0xcd, 0x23}, Coins:types.Coins{types.Coin{Denom:"BNB", Amount:1000000000}}}}}}, Signatures:[]tx.StdSignature(nil), Memo:"", Source:0, Data:[]uint8(nil)}
+	//dex 41848386
+	//data &tx.StdTx{Msgs:[]msg.Msg{msg.CreateOrderMsg{Sender:types.AccAddress{0xc3, 0x31, 0x2f, 0xf2, 0x3, 0x20, 0x63, 0x8f, 0xa7, 0xbe, 0xa5, 0x26, 0x2b, 0x5e, 0xf7, 0x63, 0x2f, 0xcb, 0xd2, 0x26}, ID:"C3312FF20320638FA7BEA5262B5EF7632FCBD226-30", Symbol:"QRL-EAB_BNB", OrderType:1, Side:-1, Price:50000000, Quantity:200000000, TimeInForce:-1}}, Signatures:[]tx.StdSignature(nil), Memo:"", Source:0, Data:[]uint8(nil)}
+
+	block, _, err := c.Get("/block", map[string]string{"height": "41848386"}, true)
 	assert.Nil(t, err)
 	res := new(Blocks)
 	// err = amino.UnmarshalJSON(block, res)
@@ -135,16 +177,30 @@ func TestBlocks(t *testing.T) {
 	for _, v := range res.Txs {
 		m := new(tx.StdTx)
 		codec.UnmarshalBinaryLengthPrefixed(v, m)
-		sendMsg, ok := m.Msgs[0].(msg.SendMsg)
-		if !ok {
-			continue
+		fmt.Printf("data %#v \n", m)
+		for k, _ := range m.Msgs {
+
+			if sendMsg, ok := m.Msgs[k].(msg.SendMsg); ok {
+				sender := sendMsg.Inputs[0].Address.String()
+				recipt := sendMsg.Outputs[0].Address.String()
+				denom := sendMsg.Outputs[0].Coins[0].Denom
+				amount := sendMsg.Outputs[0].Coins[0].Amount
+				fmt.Printf("hash %s \n \n", strings.ToUpper(hex.EncodeToString(v.Hash())))
+				fmt.Printf("sender %s recipt %s denom %s amount %d \n", sender, recipt, strings.ToLower(denom), amount)
+			}
+			if sendMsg, ok := m.Msgs[k].(msg.CreateOrderMsg); ok {
+				id:=sendMsg.ID
+				sender:=sendMsg.Sender.String()
+				symble:=sendMsg.Symbol
+				// orderType:=sendMsg.OrderType
+				side:=sendMsg.Side  //-1 buy
+				price:=sendMsg.Price
+				quantity:=sendMsg.Quantity
+				fmt.Printf("id %s sender %s symble %s side %d price %d quantity %d \n",id, sender, symble, side, price,quantity)
+
+			}
 		}
-		sender := sendMsg.Inputs[0].Address.String()
-		recipt := sendMsg.Outputs[0].Address.String()
-		denom := sendMsg.Outputs[0].Coins[0].Denom
-		amount := sendMsg.Outputs[0].Coins[0].Amount
-		fmt.Printf("hash %s \n \n", strings.ToUpper(hex.EncodeToString(v.Hash())))
-		fmt.Printf("sender %s recipt %s denom %s admount %d \n", sender, recipt, strings.ToLower(denom), amount)
+		
 
 		// for _, msg := range m.GetMsgs() {
 		// address := msg.GetInvolvedAddresses()
@@ -205,4 +261,8 @@ func TestParseTx(t *testing.T) {
 
 	}
 	println(string(bz))
+}
+
+func TestKey3(t *testing.T) {
+	println(key3.GetAddr().String())
 }
