@@ -72,14 +72,14 @@ func (fetcher *fetchImpl) FetchAndHandle(offset int64) (bool, error) {
 	}
 
 	blockHash := block.Header.Hash()
-	fetcher.TraceF("handle block(%s)", blockHash.ToHexString())
+	fetcher.TraceF("handle block(%d)", blockHash)
 
 	if err := fetcher.handler.Block(block, int64(blockNumber), blockTime); err != nil {
-		fetcher.ErrorF("handle block(%s) err %s", blockHash.ToHexString(), err)
+		fetcher.ErrorF("handle block(%d) err %s", blockHash, err)
 		return false, err
 	}
 
-	fetcher.TraceF("handle block(%s) -- success", blockHash.ToHexString())
+	fetcher.TraceF("handle block(%d) -- success", blockHash)
 
 	return true, err
 }

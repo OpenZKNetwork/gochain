@@ -10,7 +10,7 @@ import (
 
 	"github.com/binance-chain/go-sdk/keys"
 	"github.com/binance-chain/go-sdk/types"
-	"github.com/binance-chain/go-sdk/types/msg"
+
 	"github.com/binance-chain/go-sdk/types/tx"
 	"github.com/stretchr/testify/assert"
 )
@@ -172,15 +172,15 @@ func TestBlocks(t *testing.T) {
 	// err = amino.UnmarshalJSON(block, res)
 	err = json.Unmarshal(block, res)
 	assert.Nil(t, err)
-	codec := types.NewCodec()
+	codec := Cdc
 
 	for _, v := range res.Txs {
-		m := new(tx.StdTx)
+		m := new(StdTx)
 		codec.UnmarshalBinaryLengthPrefixed(v, m)
-		fmt.Printf("data %#v \n", m)
+		// fmt.Printf("data %#v \n", m)
 		for k, _ := range m.Msgs {
 
-			if sendMsg, ok := m.Msgs[k].(msg.SendMsg); ok {
+			if sendMsg, ok := m.Msgs[k].(SendMsg); ok {
 				sender := sendMsg.Inputs[0].Address.String()
 				recipt := sendMsg.Outputs[0].Address.String()
 				denom := sendMsg.Outputs[0].Coins[0].Denom
@@ -188,19 +188,18 @@ func TestBlocks(t *testing.T) {
 				fmt.Printf("hash %s \n \n", strings.ToUpper(hex.EncodeToString(v.Hash())))
 				fmt.Printf("sender %s recipt %s denom %s amount %d \n", sender, recipt, strings.ToLower(denom), amount)
 			}
-			if sendMsg, ok := m.Msgs[k].(msg.CreateOrderMsg); ok {
-				id:=sendMsg.ID
-				sender:=sendMsg.Sender.String()
-				symble:=sendMsg.Symbol
+			if sendMsg, ok := m.Msgs[k].(CreateOrderMsg); ok {
+				id := sendMsg.ID
+				sender := sendMsg.Sender.String()
+				symble := sendMsg.Symbol
 				// orderType:=sendMsg.OrderType
-				side:=sendMsg.Side  //-1 buy
-				price:=sendMsg.Price
-				quantity:=sendMsg.Quantity
-				fmt.Printf("id %s sender %s symble %s side %d price %d quantity %d \n",id, sender, symble, side, price,quantity)
+				side := sendMsg.Side //-1 buy
+				price := sendMsg.Price
+				quantity := sendMsg.Quantity
+				fmt.Printf("id %s sender %s symble %s side %d price %d quantity %d \n", id, sender, symble, side, price, quantity)
 
 			}
 		}
-		
 
 		// for _, msg := range m.GetMsgs() {
 		// address := msg.GetInvolvedAddresses()

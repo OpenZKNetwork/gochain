@@ -131,6 +131,8 @@ func RegisterCodec(cdc *amino.Codec) {
 	cdc.RegisterInterface((*Msg)(nil), nil)
 	cdc.RegisterConcrete(StdTx{}, "auth/StdTx", nil)
 	cdc.RegisterConcrete(SendMsg{}, "cosmos-sdk/Send", nil)
+	cdc.RegisterConcrete(CreateOrderMsg{}, "dex/NewOrder", nil)
+
 }
 
 func init() {

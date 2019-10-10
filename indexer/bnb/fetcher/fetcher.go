@@ -34,7 +34,7 @@ func New(apinode, wsnode string, network int, handler Handler) (indexer.Fetcher,
 		return nil, err
 	}
 	return &fetchImpl{
-		Logger:  slf4go.Get("ont-fetcher"),
+		Logger:  slf4go.Get("bnb-fetcher"),
 		client:  client,
 		handler: handler,
 	}, nil
@@ -137,14 +137,14 @@ func (fetcher *fetchImpl) FetchAndHandle(offset int64) (bool, error) {
 		fetcher.TraceF("handle tx(%s) -- success", ToHexString(txHash))
 	}
 
-	fetcher.TraceF("handle block(%d)", block)
+	fetcher.TraceF("handle block(%d)", blockNumber)
 
 	if err := fetcher.handler.Block(block, int64(blockNumber), blockTime); err != nil {
-		fetcher.ErrorF("handle block(%d) err %s", block, err)
+		fetcher.ErrorF("handle block(%d) err %s", blockNumber, err)
 		return false, err
 	}
 
-	fetcher.TraceF("handle block(%d) -- success", block)
+	fetcher.TraceF("handle block(%d) -- success", blockNumber)
 
 	return true, err
 }
