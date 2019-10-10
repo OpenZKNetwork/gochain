@@ -10,7 +10,6 @@ import (
 	"github.com/dynamicgo/slf4go"
 
 	"github.com/openzknetwork/gochain/indexer"
-	"github.com/tendermint/go-amino"
 
 	"github.com/openzknetwork/gochain/rpc/bnb"
 )
@@ -74,15 +73,14 @@ func (fetcher *fetchImpl) FetchAndHandle(offset int64) (bool, error) {
 		return false, err
 	}
 	blockTime := block.Time
-	codec := amino.NewCodec()
 
-	for _, v := range block.Txs {
-		txHash := v.Hash()
+	for _, tx := range block.Txs {
+		txHash := tx.Hash()
 		m := new(bnb.StdTx)
-		codec.UnmarshalBinaryLengthPrefixed(v, m)
-		for k, _ := range m.Msgs {
+		bnb.Cdc.UnmarshalBinaryLengthPrefixed(tx, m)
+		for _, msg := range m.Msgs {
 
-			if sendMsg, ok := m.Msgs[k].(bnb.SendMsg); ok {
+			if sendMsg, ok := msg.(bnb.SendMsg); ok {
 				for _, v := range sendMsg.Outputs {
 					for _, val := range v.Coins {
 						bnbTx := &bnb.Transaction{
@@ -107,7 +105,7 @@ func (fetcher *fetchImpl) FetchAndHandle(offset int64) (bool, error) {
 					}
 
 				}
-			} else if sendMsg, ok := m.Msgs[k].(bnb.CreateOrderMsg); ok {
+			} else if sendMsg, ok := msg.(bnb.CreateOrderMsg); ok {
 				// side := sendMsg.Side   -1 buy
 				bnbTx := &bnb.Transaction{
 					From:     "",
