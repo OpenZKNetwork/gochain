@@ -166,7 +166,7 @@ func TestBlocks(t *testing.T) {
 	//dex 41848386
 	//data &tx.StdTx{Msgs:[]msg.Msg{msg.CreateOrderMsg{Sender:types.AccAddress{0xc3, 0x31, 0x2f, 0xf2, 0x3, 0x20, 0x63, 0x8f, 0xa7, 0xbe, 0xa5, 0x26, 0x2b, 0x5e, 0xf7, 0x63, 0x2f, 0xcb, 0xd2, 0x26}, ID:"C3312FF20320638FA7BEA5262B5EF7632FCBD226-30", Symbol:"QRL-EAB_BNB", OrderType:1, Side:-1, Price:50000000, Quantity:200000000, TimeInForce:-1}}, Signatures:[]tx.StdSignature(nil), Memo:"", Source:0, Data:[]uint8(nil)}
 
-	block, _, err := c.Get("/block", map[string]string{"height": "43863553"}, true)
+	block, _, err := c.Get("/block", map[string]string{"height": "42016021"}, true)
 	assert.Nil(t, err)
 	res := new(Blocks)
 	// err = amino.UnmarshalJSON(block, res)

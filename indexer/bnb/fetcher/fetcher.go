@@ -2,7 +2,6 @@ package fetcher
 
 import (
 	"encoding/hex"
-	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -107,31 +106,32 @@ func (fetcher *fetchImpl) FetchAndHandle(offset int64) (bool, error) {
 					}
 
 				}
-			} else if sendMsg, ok := msg.(bnb.CreateOrderMsg); ok {
-				// side := sendMsg.Side   -1 buy
-				bnbTx := &bnb.Transaction{
-					From:     "",
-					To:       "",
-					Symbol:   sendMsg.Symbol,
-					Amount:   int64((float64(sendMsg.Price) * float64(sendMsg.Quantity)) / math.Pow10(8)),
-					Tx:       strings.ToUpper(ToHexString(txHash)),
-					Block:    blockNumber,
-					T:        blockTime,
-					GasLimit: 1,
-					GasPrice: 37500, //dex 单价
-				}
-				if sendMsg.Side == -1 {
-					bnbTx.From = sendMsg.Sender.String()
-				} else {
-					bnbTx.To = sendMsg.Sender.String()
-				}
-				err = fetcher.handler.TX(bnbTx, int64(blockNumber), blockTime)
-
-				if err != nil {
-					fetcher.ErrorF("handle tx(%s) err %s", ToHexString(txHash), err)
-					return false, err
-				}
 			}
+			// else if sendMsg, ok := msg.(bnb.CreateOrderMsg); ok {
+			// 	// side := sendMsg.Side   -1 buy
+			// 	bnbTx := &bnb.Transaction{
+			// 		From:     "",
+			// 		To:       "",
+			// 		Symbol:   sendMsg.Symbol,
+			// 		Amount:   int64((float64(sendMsg.Price) * float64(sendMsg.Quantity)) / math.Pow10(8)),
+			// 		Tx:       strings.ToUpper(ToHexString(txHash)),
+			// 		Block:    blockNumber,
+			// 		T:        blockTime,
+			// 		GasLimit: 1,
+			// 		GasPrice: 37500, //dex 单价
+			// 	}
+			// 	if sendMsg.Side == -1 {
+			// 		bnbTx.From = sendMsg.Sender.String()
+			// 	} else {
+			// 		bnbTx.To = sendMsg.Sender.String()
+			// 	}
+			// 	err = fetcher.handler.TX(bnbTx, int64(blockNumber), blockTime)
+
+			// 	if err != nil {
+			// 		fetcher.ErrorF("handle tx(%s) err %s", ToHexString(txHash), err)
+			// 		return false, err
+			// 	}
+			// }
 		}
 
 		fetcher.TraceF("handle tx(%s) -- success", ToHexString(txHash))
