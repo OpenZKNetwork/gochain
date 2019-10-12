@@ -49,6 +49,7 @@ func (fetcher *fetchImpl) FetchAndHandle(offset int64) (bool, error) {
 	bestBlock, err := fetcher.client.BestBlockNumber()
 
 	if err != nil {
+		fetcher.DebugF("get best block error %s", err)
 		return false, err
 	}
 
@@ -61,6 +62,7 @@ func (fetcher *fetchImpl) FetchAndHandle(offset int64) (bool, error) {
 	block, err := fetcher.client.GetBlockByNumber(uint32(offset))
 
 	if err != nil {
+		fetcher.DebugF("GetBlockByNumber error %s", err)
 		return false, err
 	}
 

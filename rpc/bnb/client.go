@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/tendermint/tendermint/types"
@@ -59,11 +60,21 @@ func (c *client) GetNodeInfo() (*ResultStatus, error) {
 	return &resultStatus, nil
 }
 func (c *client) BestBlockNumber() (uint32, error) {
-	res, err := c.GetNodeInfo()
+	info, _, err := c.Get("/abci_info", map[string]string{}, true)
 	if err != nil {
 		return 0, err
 	}
-	return res.SyncInfo.Height, nil
+
+	data := new(Height)
+	err = json.Unmarshal(info, data)
+	if err != nil {
+		return 0, err
+	}
+	height, err := strconv.ParseInt(data.BlockHeith, 0, 64)
+	if err != nil {
+		return 0, err
+	}
+	return uint32(height), nil
 }
 
 // // CreateOrder 同一账户中,币种转换

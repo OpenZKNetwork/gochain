@@ -744,11 +744,24 @@ type FieldOptions struct {
 	WriteEmpty    bool // write empty structs and lists (default false except for pointers)
 	EmptyElements bool // Slice and Array elements are never nil, decode 0x00 as empty struct.
 }
-
+//Height .
+type Height struct {
+	HeightResp `json:"result"`
+}
+// HeightResp .
+type HeightResp struct {
+	LastBlockHeight `json:"response"`
+}
+//LastBlockHeight .
+type LastBlockHeight struct {
+	BlockHeith string `json:"last_block_height"`
+}
 // Blocks .
 type Blocks struct {
 	SResult `json:"result"`
 }
+
+// SResult .
 type SResult struct {
 	Block     `json:"block"`
 	BlockMeta `json:"block_meta"`
